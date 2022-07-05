@@ -1,0 +1,11 @@
+help:
+  - "&7Welcome to the Global Trade System!"
+  - "&7This plugin allows you to easily buy and sell items across an entire server, or network!"
+  - "&7You are currently looking at /gts help"
+  - "&7Other Commands:"
+  - "&7/gts add <price>"
+  - "&7/gts show"
+listing:
+  name: "&r&l%type%"
+  lore:
+    - "&r&7&oPrice: %price%"

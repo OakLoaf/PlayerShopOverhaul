@@ -1,0 +1,13 @@
+#This is a highly important value,
+#it helps to ensure payments get to
+#the correct server when using this
+#plugin across multiple servers
+serverID: 1
+
+database:
+  type: "SQLite"
+  host: ""
+  name: ""
+  port: 3306
+  username: ""
+  password: ""

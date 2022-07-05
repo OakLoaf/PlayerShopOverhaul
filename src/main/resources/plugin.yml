@@ -1,0 +1,14 @@
+name: PlayerShopOverhaul
+version: ${project.version}
+main: me.xemor.playershopoverhaul.PlayerShopOverhaul
+api-version: 1.17
+authors: [ Xemor_ ]
+description: Adds the global trade system 
+commands:
+  gts:
+    usage: /gts
+    description: Opens the global trade system
+    aliases: ["globaltradesystem"]
+depend:
+  - UserInterface
+  - Vault
