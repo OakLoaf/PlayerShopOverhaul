@@ -120,6 +120,10 @@ public class Market implements Comparable<Market> {
 
     */
     public String getName() {
+        return Market.getName(item);
+    }
+
+    public static String getName(ItemStack item) {
         return item.hasItemMeta() && item.getItemMeta().hasDisplayName() ? item.getItemMeta().getDisplayName() : PlayerShopOverhaul.getInstance().getConfigHandler().getListingName().replace("%type%", item.getType().name());
     }
 

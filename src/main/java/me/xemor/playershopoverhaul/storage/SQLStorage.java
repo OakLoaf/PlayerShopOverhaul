@@ -11,7 +11,6 @@ import net.milkbowl.vault.economy.Economy;
 import net.milkbowl.vault.economy.EconomyResponse;
 import org.bukkit.Bukkit;
 import org.bukkit.inventory.ItemStack;
-import org.yaml.snakeyaml.error.Mark;
 
 import java.io.*;
 import java.nio.ByteBuffer;
@@ -201,10 +200,11 @@ public class SQLStorage implements Storage {
     private void createMarket(Connection conn, ItemStack item) {
         try (PreparedStatement stmt = conn.prepareStatement(
                 """
-                INSERT INTO markets(item) VALUES(?);
+                INSERT INTO markets(item, name) VALUES(?, ?);
                 """
         )) {
             stmt.setBytes(1, ItemSerialization.itemStackToBinary(item));
+            stmt.setString(2, Market.getName(item));
             stmt.execute(); //should be the id of the market that was just created
         } catch (SQLException e) {
             e.printStackTrace();
@@ -221,12 +221,14 @@ public class SQLStorage implements Storage {
                     FROM markets
                     JOIN (SELECT min(pricePer) AS price, sum(stock) AS stock, marketID FROM listings GROUP BY marketID) AS prices
                     ON prices.marketID = markets.id
+                    WHERE name LIKE '%?%'
                     ORDER BY prices.stock DESC
                     LIMIT ? OFFSET ?
                     """
             )) {
-                stmt.setInt(1, limit);
-                stmt.setInt(2, offset);
+                stmt.setString(1, search);
+                stmt.setInt(2, limit);
+                stmt.setInt(3, offset);
                 ResultSet resultSet = stmt.executeQuery();
                 List<Market> markets = new ArrayList<>();
                 while (resultSet.next()) {
@@ -337,6 +339,7 @@ public class SQLStorage implements Storage {
         CompletableFuture<EconomyResponse> completableFuture = new CompletableFuture<>();
         threads.submit(() -> {
             try (Connection conn = source.getConnection()) {
+                conn.setAutoCommit(false);
                 PreparedStatement stmt = conn.prepareStatement(
                         """
                         START TRANSACTION;

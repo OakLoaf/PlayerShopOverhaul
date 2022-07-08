@@ -36,7 +36,8 @@ java {
 tasks.shadowJar {
     minimize()
     configurations = listOf(project.configurations.shadow.get())
-    destinationDirectory.set(file(System.getenv("pluginsFolder")))
+    val folder = System.getenv("pluginFolder")
+    destinationDirectory.set(file(folder))
 }
 
 tasks.processResources {
