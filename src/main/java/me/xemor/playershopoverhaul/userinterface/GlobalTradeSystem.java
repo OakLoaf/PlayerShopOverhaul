@@ -164,7 +164,7 @@ public class GlobalTradeSystem implements Listener {
                 },
                 Map.of('B', backArrow, 'F', forwardArrow, 'b', backButton));
         chestInterface.getInteractions().addSimpleInteraction(backButton, this::showTradeSystemView);
-        chestInterface.getInteractions().addCloseInteraction(this::showTradeSystemView);
+        //chestInterface.getInteractions().addCloseInteraction(this::showTradeSystemView);
         displayListingsViewItems(player, chestInterface);
     }
 

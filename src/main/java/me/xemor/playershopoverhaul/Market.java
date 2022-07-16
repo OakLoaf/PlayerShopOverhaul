@@ -20,10 +20,13 @@ public class Market implements Comparable<Market> {
     private final ItemStack item;
     private double goingPrice = Double.NEGATIVE_INFINITY;
 
-    public Market(int marketID, ItemStack item, double goingPrice) {
+    private int stock = 0;
+
+    public Market(int marketID, ItemStack item, double goingPrice, int stock) {
         this.marketID = marketID;
         this.item = item;
         this.goingPrice = goingPrice;
+        this.stock = stock;
     }
 
     public Market(int marketID, ItemStack item) {
@@ -37,6 +40,10 @@ public class Market implements Comparable<Market> {
 
     public int getID() {
         return marketID;
+    }
+
+    public int getStock() {
+        return stock;
     }
 
     public double getGoingPrice() {
@@ -136,7 +143,7 @@ public class Market implements Comparable<Market> {
         List<String> lore = configHandler.getListingLore();
         for (int i = 0; i < lore.size(); i++) {
             lore.set(i,
-                    lore.get(i).replaceAll("%price%", String.valueOf(goingPrice))
+                    lore.get(i).replaceAll("%price%", String.valueOf(goingPrice)).replaceAll("%stock%", String.valueOf(stock))
             );
         }
         itemMeta.setLore(lore);

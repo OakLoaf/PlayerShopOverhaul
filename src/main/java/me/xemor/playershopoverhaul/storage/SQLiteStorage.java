@@ -28,7 +28,7 @@ public class SQLiteStorage extends SQLStorage {
             try (Connection conn = source.getConnection()) {
                 PreparedStatement stmt = conn.prepareStatement(
                         """
-                        SELECT listings.id AS lid, sellerID, stock, pricePer FROM listings
+                        SELECT listings.id AS lid, sellerID, serverID, stock, pricePer FROM listings
                         JOIN markets ON listings.id = markets.id
                         WHERE markets.id = ?
                         ORDER BY listings.pricePer ASC
@@ -41,7 +41,7 @@ public class SQLiteStorage extends SQLStorage {
                 int stockSum = 0;
                 double cost = 0;
                 List<Integer> forRemoval = new ArrayList<>();
-                HashMap<UUID, Double> sellerToPayment = new HashMap<>();
+                List<PurchasedListing> purchasedListings = new ArrayList<>();
                 Listing listingForReinsertion = null;
                 while (resultSet.next()) {
                     if (stockSum > amount) break;
@@ -56,49 +56,52 @@ public class SQLiteStorage extends SQLStorage {
                         price -= (stockSum - amount) * pricePer;
                         listingForReinsertion = new Listing(id, sellerID, market.getID(), stockSum - amount, pricePer);
                     }
-                    sellerToPayment.put(sellerID, price);
+                    purchasedListings.add(new PurchasedListing(sellerID, PlayerShopOverhaul.getInstance().getConfigHandler().getServerID(), price));
                     cost += price;
                 }
                 if (stockSum < amount) {
-                    conn.prepareStatement("COMMIT;").execute();
                     completableFuture.completeExceptionally(new IllegalStateException("There were not enough items on the market!"));
                     return;
                 }
                 Economy economy = PlayerShopOverhaul.getInstance().getEconomy();
                 EconomyResponse transaction = economy.withdrawPlayer(Bukkit.getOfflinePlayer(uuid), cost);
                 if (!transaction.transactionSuccess()) {
-                    conn.prepareStatement("COMMIT;").execute();
                     completableFuture.complete(transaction);
                     return;
                 }
-                for (Map.Entry<UUID, Double> entry : sellerToPayment.entrySet()) { //pay the people who put the listings up
-                    economy.depositPlayer(Bukkit.getOfflinePlayer(entry.getKey()), entry.getValue());
+                for (PurchasedListing purchasedListing : purchasedListings) { //pay the people who put the listings up
+                    PreparedStatement deposit = conn.prepareStatement(
+                            "INSERT INTO payment (sellerID, serverID, toPay) VALUES(?, ?, ?)"
+                    );
+                    deposit.setBytes(1, getUUIDBinary(purchasedListing.sellerID));
+                    deposit
                 }
                 StringJoiner joiner = new StringJoiner(",");
                 for (Integer integer : forRemoval) {
                     joiner.add(String.valueOf(integer));
                 }
-                String rawStmt = String.format("""
-                        DELETE FROM listings WHERE id IN (%s);
-                        %s
-                        """, joiner,
-                        listingForReinsertion != null ? "INSERT INTO listings (uuid, stock, pricePer, marketID) VALUES(?, ?, ?, ?);" : "");
+                String rawStmt = String.format("DELETE FROM listings WHERE id IN (%s);", joiner);
                 stmt = conn.prepareStatement(
                         rawStmt
                 );
-                if (listingForReinsertion != null) {
-                    stmt.setBytes(1, getUUIDBinary(listingForReinsertion.getUUID()));
-                    stmt.setInt(2, listingForReinsertion.getStock());
-                    stmt.setDouble(3, listingForReinsertion.getPricePer());
-                    stmt.setInt(4, market.getID());
-                }
                 stmt.execute();
+                if (listingForReinsertion != null) {
+                    PreparedStatement insert = conn.prepareStatement("INSERT INTO listings (sellerID, stock, pricePer, marketID) VALUES(?, ?, ?, ?);");
+                    insert.setBytes(1, getUUIDBinary(listingForReinsertion.getUUID()));
+                    insert.setInt(2, listingForReinsertion.getStock());
+                    insert.setDouble(3, listingForReinsertion.getPricePer());
+                    insert.setInt(4, market.getID());
+                    insert.execute();
+                }
                 completableFuture.complete(transaction);
-            } catch (SQLException | IOException e) {
+            } catch (Exception e) {
+                completableFuture.completeExceptionally(e);
                 e.printStackTrace();
             }
         });
         return completableFuture;
     }
+
+    private record PurchasedListing(UUID sellerID, int serverID, double toPay) {}
 
 }

@@ -9,3 +9,4 @@ listing:
   name: "&r&l%type%"
   lore:
     - "&r&7&oPrice: %price%"
+    - "&r&7&oStock: %stock%"

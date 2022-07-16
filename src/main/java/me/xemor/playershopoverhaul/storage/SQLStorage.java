@@ -217,16 +217,16 @@ public class SQLStorage implements Storage {
         threads.submit(() -> {
             try (Connection conn = source.getConnection(); PreparedStatement stmt = conn.prepareStatement(
                     """
-                    SELECT id, item, prices.price AS price
+                    SELECT id, item, prices.price AS price, prices.stock AS stock
                     FROM markets
                     JOIN (SELECT min(pricePer) AS price, sum(stock) AS stock, marketID FROM listings GROUP BY marketID) AS prices
                     ON prices.marketID = markets.id
-                    WHERE name LIKE '%?%'
+                    WHERE name LIKE ?
                     ORDER BY prices.stock DESC
                     LIMIT ? OFFSET ?
                     """
             )) {
-                stmt.setString(1, search);
+                stmt.setString(1, "%" + search + "%");
                 stmt.setInt(2, limit);
                 stmt.setInt(3, offset);
                 ResultSet resultSet = stmt.executeQuery();
@@ -235,11 +235,13 @@ public class SQLStorage implements Storage {
                     int id = resultSet.getInt("id");
                     byte[] itemBytes = resultSet.getBytes("item");
                     double pricePer = resultSet.getDouble("price");
+                    int stock = resultSet.getInt("stock");
                     ItemStack itemStack = ItemSerialization.binaryToItemStack(itemBytes);
-                    markets.add(new Market(id, itemStack, pricePer));
+                    markets.add(new Market(id, itemStack, pricePer, stock));
                 }
                 completableFuture.complete(markets);
-            } catch (SQLException e) {
+            } catch (Exception e) {
+                completableFuture.completeExceptionally(e);
                 e.printStackTrace();
             }
         });
