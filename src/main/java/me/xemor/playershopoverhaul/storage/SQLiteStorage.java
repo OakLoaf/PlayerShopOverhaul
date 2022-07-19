@@ -8,11 +8,9 @@ import net.milkbowl.vault.economy.Economy;
 import net.milkbowl.vault.economy.EconomyResponse;
 import org.bukkit.Bukkit;
 
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
-import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
@@ -29,7 +27,7 @@ public class SQLiteStorage extends SQLStorage {
                 PreparedStatement stmt = conn.prepareStatement(
                         """
                         SELECT listings.id AS lid, sellerID, serverID, stock, pricePer FROM listings
-                        JOIN markets ON listings.id = markets.id
+                        JOIN markets ON listings.marketID = markets.id
                         WHERE markets.id = ?
                         ORDER BY listings.pricePer ASC
                         LIMIT ?
@@ -43,20 +41,23 @@ public class SQLiteStorage extends SQLStorage {
                 List<Integer> forRemoval = new ArrayList<>();
                 List<PurchasedListing> purchasedListings = new ArrayList<>();
                 Listing listingForReinsertion = null;
+                int serverIDForReinsertion = -1;
                 while (resultSet.next()) {
                     if (stockSum > amount) break;
                     int id = resultSet.getInt("lid");
                     UUID sellerID = fromUUIDBinary(resultSet.getBytes("sellerID"));
                     int stock = resultSet.getInt("stock");
                     double pricePer = resultSet.getDouble("pricePer");
+                    int serverID = resultSet.getInt("serverID");
                     stockSum += stock;
                     double price = stock * pricePer;
                     forRemoval.add(id);
                     if (stockSum > amount) {
                         price -= (stockSum - amount) * pricePer;
                         listingForReinsertion = new Listing(id, sellerID, market.getID(), stockSum - amount, pricePer);
+                        serverIDForReinsertion = serverID;
                     }
-                    purchasedListings.add(new PurchasedListing(sellerID, PlayerShopOverhaul.getInstance().getConfigHandler().getServerID(), price));
+                    purchasedListings.add(new PurchasedListing(sellerID, serverID, price));
                     cost += price;
                 }
                 if (stockSum < amount) {
@@ -74,7 +75,8 @@ public class SQLiteStorage extends SQLStorage {
                             "INSERT INTO payment (sellerID, serverID, toPay) VALUES(?, ?, ?)"
                     );
                     deposit.setBytes(1, getUUIDBinary(purchasedListing.sellerID));
-                    deposit
+                    deposit.setInt(2, purchasedListing.serverID());
+                    deposit.setDouble(3, purchasedListing.toPay());
                 }
                 StringJoiner joiner = new StringJoiner(",");
                 for (Integer integer : forRemoval) {
@@ -86,11 +88,12 @@ public class SQLiteStorage extends SQLStorage {
                 );
                 stmt.execute();
                 if (listingForReinsertion != null) {
-                    PreparedStatement insert = conn.prepareStatement("INSERT INTO listings (sellerID, stock, pricePer, marketID) VALUES(?, ?, ?, ?);");
-                    insert.setBytes(1, getUUIDBinary(listingForReinsertion.getUUID()));
-                    insert.setInt(2, listingForReinsertion.getStock());
-                    insert.setDouble(3, listingForReinsertion.getPricePer());
-                    insert.setInt(4, market.getID());
+                    PreparedStatement insert = conn.prepareStatement("INSERT INTO listings (sellerID, serverID, stock, pricePer, marketID) VALUES(?, ?, ?, ?, ?);");
+                    insert.setBytes(1, getUUIDBinary(listingForReinsertion.getSellerID()));
+                    insert.setInt(2, serverIDForReinsertion);
+                    insert.setInt(3, listingForReinsertion.getStock());
+                    insert.setDouble(4, listingForReinsertion.getPricePer());
+                    insert.setInt(5, market.getID());
                     insert.execute();
                 }
                 completableFuture.complete(transaction);

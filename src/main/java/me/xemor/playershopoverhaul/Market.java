@@ -131,7 +131,7 @@ public class Market implements Comparable<Market> {
     }
 
     public static String getName(ItemStack item) {
-        return item.hasItemMeta() && item.getItemMeta().hasDisplayName() ? item.getItemMeta().getDisplayName() : PlayerShopOverhaul.getInstance().getConfigHandler().getListingName().replace("%type%", item.getType().name());
+        return item.hasItemMeta() && item.getItemMeta().hasDisplayName() ? item.getItemMeta().getDisplayName() : PlayerShopOverhaul.getInstance().getConfigHandler().getListingName(item.getType().name());
     }
 
     public ItemStack getMarketRepresentation() {
@@ -140,12 +140,7 @@ public class Market implements Comparable<Market> {
         ItemMeta itemMeta = representation.getItemMeta();
         if (itemMeta == null) itemMeta = Bukkit.getItemFactory().getItemMeta(representation.getType());
         itemMeta.setDisplayName(getName());
-        List<String> lore = configHandler.getListingLore();
-        for (int i = 0; i < lore.size(); i++) {
-            lore.set(i,
-                    lore.get(i).replaceAll("%price%", String.valueOf(goingPrice)).replaceAll("%stock%", String.valueOf(stock))
-            );
-        }
+        List<String> lore = new ArrayList<>(configHandler.getListingLore(goingPrice, stock));
         itemMeta.setLore(lore);
         itemMeta.getPersistentDataContainer().set(
                 new NamespacedKey(PlayerShopOverhaul.getInstance(), "marketID"),

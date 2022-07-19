@@ -1,12 +1,15 @@
 help:
-  - "&7Welcome to the Global Trade System!"
-  - "&7This plugin allows you to easily buy and sell items across an entire server, or network!"
-  - "&7You are currently looking at /gts help"
-  - "&7Other Commands:"
-  - "&7/gts add <price>"
-  - "&7/gts show"
+  - "<gray>Welcome to the Global Trade System!"
+  - "<gray>This plugin allows you to easily buy and sell items across an entire server, or network!"
+  - "<gray>You are currently looking at /gts help"
+  - "<gray>Other Commands:"
+  - "<gray>/gts sell <price>"
+  - "<gray>/gts show"
+  - "<gray>/gts claim"
+claim:
+  claimed: "<gray>You claimed <money> dollars!"
 listing:
-  name: "&r&l%type%"
+  name: "<reset><b><name>"
   lore:
-    - "&r&7&oPrice: %price%"
-    - "&r&7&oStock: %stock%"
+    - "<reset><gray><i>Price: <price>"
+    - "<reset><gray><i>Stock: <stock>"

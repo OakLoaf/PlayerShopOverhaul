@@ -2,6 +2,6 @@ package me.xemor.playershopoverhaul.commands;
 
 public enum SubCommandType {
 
-    ADD, HELP, SHOW;
+    SELL, CLAIM, HELP, SHOW;
 
 }

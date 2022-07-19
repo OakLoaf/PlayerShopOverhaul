@@ -21,6 +21,7 @@ public interface Storage {
     CompletableFuture<List<Market>> getMarkets(List<Listing> listings);
     CompletableFuture<EconomyResponse> purchaseFromMarket(UUID uuid, Market market, int amount);
     CompletableFuture<List<Market>> getMarkets(int offset, int limits, String search);
+    CompletableFuture<Double> claimPayment(UUID uuid);
 
 
 }

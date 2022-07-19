@@ -1,6 +1,11 @@
 package me.xemor.playershopoverhaul;
 
 import me.xemor.playershopoverhaul.storage.SQLStorage;
+import net.kyori.adventure.Adventure;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.ChatColor;
 import org.bukkit.configuration.file.FileConfiguration;
 import org.bukkit.configuration.file.YamlConfiguration;
@@ -12,10 +17,12 @@ import java.util.stream.Collectors;
 
 public class ConfigHandler {
 
+    private final LegacyComponentSerializer legacySerializer = LegacyComponentSerializer.builder().useUnusualXRepeatedCharacterHexFormat().hexColors().build();
     private final FileConfiguration config;
     private final YamlConfiguration language;
     private int serverID;
-    private String helpMessage;
+    private Component helpMessage;
+    private Component claimedMessage;
     private String listingName;
     private List<String> listingLore;
 
@@ -27,9 +34,10 @@ public class ConfigHandler {
         File languageFile = new File(PlayerShopOverhaul.getInstance().getDataFolder(), "language.yml");
         language = YamlConfiguration.loadConfiguration(languageFile);
         this.serverID = config.getInt("serverID");
-        this.helpMessage = language.getStringList("help").stream().map((str) -> ChatColor.translateAlternateColorCodes('&', str)).reduce("", (str1, str2) -> str1 + "\n" + str2);
-        this.listingName = ChatColor.translateAlternateColorCodes('&', language.getString("listing.name", "&r&l%type%"));
-        this.listingLore = language.getStringList("listing.lore").stream().map((str) -> ChatColor.translateAlternateColorCodes('&', str)).collect(Collectors.toList());
+        this.helpMessage = MiniMessage.miniMessage().deserialize(language.getStringList("help").stream().reduce("", (str1, str2) -> str1 + "\n" + str2));
+        this.listingName = language.getString("listing.name", "<r><b><name>");
+        this.listingLore = language.getStringList("listing.lore");
+        this.claimedMessage = MiniMessage.miniMessage().deserialize(language.getString("claim.claimed", "<gray>You claimed <money> dollars!"));
     }
 
     public String getDatabaseType() {
@@ -58,10 +66,14 @@ public class ConfigHandler {
 
     public int getServerID() { return serverID; }
 
-    public String getHelpMessage() { return helpMessage; }
+    public Component getHelpMessage() { return helpMessage; }
 
-    public String getListingName() { return listingName; }
+    public Component getClaimedMessage(double money) { return claimedMessage; }
 
-    public List<String> getListingLore() { return new ArrayList<>(listingLore); }
+    public String getListingName(String name) { return legacySerializer.serialize(MiniMessage.miniMessage().deserialize(listingName, Placeholder.unparsed("name", String.valueOf(name)))); }
+
+    public List<String> getListingLore(double price, int stock) { return listingLore.stream()
+            .map((str) -> legacySerializer.serialize(MiniMessage.miniMessage().deserialize(str, Placeholder.unparsed("price", String.valueOf(price)), Placeholder.unparsed("stock", String.valueOf(stock)))))
+            .collect(Collectors.toList()); }
 
 }

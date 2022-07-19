@@ -1,29 +1,25 @@
 package me.xemor.playershopoverhaul;
 
-import org.bukkit.inventory.ItemStack;
-import org.bukkit.inventory.meta.ItemMeta;
-
-import java.util.List;
 import java.util.UUID;
 
 public class Listing implements Comparable<Listing> {
 
     private final int marketID;
-    private final UUID uuid;
+    private final UUID sellerID;
     private final int stock;
     private final int id;
     private final double pricePer;
 
-    public Listing(int id, UUID uuid, int marketID, int stock, double pricePer) {
-        this.uuid = uuid;
+    public Listing(int id, UUID sellerID, int marketID, int stock, double pricePer) {
+        this.sellerID = sellerID;
         this.id = id;
         this.marketID = marketID;
         this.stock = stock;
         this.pricePer = pricePer;
     }
 
-    public UUID getUUID() {
-        return uuid;
+    public UUID getSellerID() {
+        return sellerID;
     }
 
     public int getStock() {

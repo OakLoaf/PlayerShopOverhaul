@@ -164,6 +164,20 @@ public class GlobalTradeSystem implements Listener {
                 },
                 Map.of('B', backArrow, 'F', forwardArrow, 'b', backButton));
         chestInterface.getInteractions().addSimpleInteraction(backButton, this::showTradeSystemView);
+        chestInterface.getInteractions().addInteraction((item) -> item != null && item.hasItemMeta() &&
+                item.getItemMeta().getPersistentDataContainer().has(listingsIDKey, PersistentDataType.INTEGER),
+                (clickPlayer, item, clickType) -> {
+                    Inventory inventory = clickPlayer.getOpenInventory().getTopInventory();
+                    ItemMeta itemMeta = item.getItemMeta();
+                    int id = itemMeta.getPersistentDataContainer().get(listingsIDKey, PersistentDataType.INTEGER);
+                    itemMeta.getPersistentDataContainer().remove(listingsIDKey);
+                    item.setItemMeta(itemMeta);
+                    CompletableFuture<Object> future = storage.removeListing(id);
+                    future.thenAccept((ignored) -> {
+                       clickPlayer.getInventory().addItem(item);
+                       inventory.remove(item);
+                    });
+                });
         //chestInterface.getInteractions().addCloseInteraction(this::showTradeSystemView);
         displayListingsViewItems(player, chestInterface);
     }
@@ -181,6 +195,9 @@ public class GlobalTradeSystem implements Listener {
                             ItemStack item;
                             if (i < listings.size()) {
                                 item = markets.get(i).getItem();
+                                ItemMeta meta = item.getItemMeta();
+                                meta.getPersistentDataContainer().set(listingsIDKey, PersistentDataType.INTEGER, listings.get(i).getID());
+                                item.setItemMeta(meta);
                             }
                             else {
                                 item = new ItemStack(Material.AIR);
@@ -192,6 +209,13 @@ public class GlobalTradeSystem implements Listener {
                 }.runTask(PlayerShopOverhaul.getInstance());
             });
         });
+    }
+
+    public CompletableFuture<Double> claimPayment(Player player) {
+        Storage storage = PlayerShopOverhaul.getInstance().getGlobalTradeSystem().getStorage();
+        CompletableFuture<Double> moneyFuture = storage.claimPayment(player.getUniqueId());
+        moneyFuture.thenAccept((money) -> PlayerShopOverhaul.getInstance().getEconomy().depositPlayer(player, money));
+        return moneyFuture;
     }
 
     private ItemStack forwardArrow(GTSData data) {

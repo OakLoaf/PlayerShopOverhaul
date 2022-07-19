@@ -8,9 +8,10 @@ import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
+import java.util.ArrayList;
 import java.util.List;
 
-public class AddListingCommand implements SubCommand {
+public class SellItemCommand implements SubCommand {
 
     GlobalTradeSystem tradeSystem = PlayerShopOverhaul.getInstance().getGlobalTradeSystem();
 
@@ -33,6 +34,12 @@ public class AddListingCommand implements SubCommand {
 
     @Override
     public List<String> onTabComplete(CommandSender sender, String[] args) {
-        return null;
+        List<String> tab = new ArrayList<>();
+        if (args.length == 2) {
+            for (int i = 0; i < 10; i++) {
+                tab.add(args[1] + i);
+            }
+        }
+        return tab;
     }
 }

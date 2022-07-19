@@ -2,6 +2,7 @@ package me.xemor.playershopoverhaul;
 
 import me.xemor.playershopoverhaul.commands.GTSCommand;
 import me.xemor.playershopoverhaul.userinterface.GlobalTradeSystem;
+import net.kyori.adventure.platform.bukkit.BukkitAudiences;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.command.PluginCommand;
 import org.bukkit.plugin.RegisteredServiceProvider;
@@ -12,6 +13,7 @@ public final class PlayerShopOverhaul extends JavaPlugin {
     private static PlayerShopOverhaul playerShopOverhaul;
     private ConfigHandler configHandler;
     private GlobalTradeSystem globalTradeSystem;
+    private BukkitAudiences bukkitAudiences;
     private Economy econ;
 
     @Override
@@ -24,6 +26,7 @@ public final class PlayerShopOverhaul extends JavaPlugin {
         GTSCommand gtsCommand = new GTSCommand();
         gts.setExecutor(gtsCommand);
         gts.setTabCompleter(gtsCommand);
+        bukkitAudiences = BukkitAudiences.create(this);
         if (!setupEconomy()) this.getLogger().severe("Failed to setup economy plugin");
     }
 
@@ -42,6 +45,10 @@ public final class PlayerShopOverhaul extends JavaPlugin {
         }
         econ = rsp.getProvider();
         return true;
+    }
+
+    public BukkitAudiences getBukkitAudiences() {
+        return bukkitAudiences;
     }
 
     public Economy getEconomy() {

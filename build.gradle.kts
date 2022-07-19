@@ -21,7 +21,7 @@ dependencies {
     compileOnly("me.xemor:UserInterface:1.5.1-SNAPSHOT")
     compileOnly("com.github.MilkBowl:VaultAPI:1.7")
     compileOnly("org.jetbrains:annotations:23.0.0")
-    shadow("de.themoep:minedown-adventure:1.7.1-SNAPSHOT")
+    shadow("net.kyori:adventure-text-minimessage:4.11.0")
     shadow("net.kyori:adventure-platform-bukkit:4.1.1")
     shadow("mysql:mysql-connector-java:8.0.29")
     shadow("com.zaxxer:HikariCP:5.0.1")
