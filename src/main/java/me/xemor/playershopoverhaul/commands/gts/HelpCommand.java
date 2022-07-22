@@ -1,8 +1,8 @@
-package me.xemor.playershopoverhaul.commands;
+package me.xemor.playershopoverhaul.commands.gts;
 
 import me.xemor.playershopoverhaul.PlayerShopOverhaul;
+import me.xemor.playershopoverhaul.commands.SubCommand;
 import org.bukkit.command.CommandSender;
-import org.bukkit.entity.Player;
 
 import java.util.List;
 
@@ -10,8 +10,10 @@ public class HelpCommand implements SubCommand {
 
     @Override
     public void onCommand(CommandSender sender, String[] args) {
-        PlayerShopOverhaul instance = PlayerShopOverhaul.getInstance();
-        instance.getBukkitAudiences().sender(sender).sendMessage(instance.getConfigHandler().getHelpMessage());
+        if (sender.hasPermission("playershopoverhaul.gts.help")) {
+            PlayerShopOverhaul instance = PlayerShopOverhaul.getInstance();
+            instance.getBukkitAudiences().sender(sender).sendMessage(instance.getConfigHandler().getHelpMessage());
+        }
     }
 
     @Override

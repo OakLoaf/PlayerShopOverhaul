@@ -8,7 +8,30 @@ commands:
   gts:
     usage: /gts
     description: Opens the global trade system
-    aliases: ["globaltradesystem"]
+    aliases: ["globaltradesystem", "ah"]
+  pso:
+    usage: /pso
+    description: The admin commands of PlayerShopOverhaul
+    aliases: ["playershopoverhaul"]
 depend:
   - UserInterface
   - Vault
+permissions:
+  playershopoverhaul.pso.reload:
+    description: Allows you to reload PlayerShopOverhaul
+    default: op
+  playershopoverhaul.pso.toggleplugin:
+    description: Allows you to toggle the registration of /gts in PlayerShopOverhaul
+    default: op
+  playershopoverhaul.gts.claim:
+    description: Allows you to claim your money from sellings items on the GTS
+    default: true
+  playershopoverhaul.gts.sell:
+    description: Allows you to sell your items on the GTS
+    default: true
+  playershopoverhaul.gts.show:
+    description: Allows you to view the items on the GTS
+    default: true
+  playershopoverhaul.gts.help:
+    description: Shows the help message for the GTS
+    default: true

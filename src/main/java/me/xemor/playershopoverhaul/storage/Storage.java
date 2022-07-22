@@ -12,6 +12,7 @@ import java.util.concurrent.CompletableFuture;
 
 public interface Storage {
 
+    void setup();
     void registerListing(UUID uuid, ItemStack item, int stock, double pricePer);
     CompletableFuture<Object> removeListing(int listingID);
     CompletableFuture<Listing> getListing(int listingID);

@@ -1,12 +1,17 @@
 package me.xemor.playershopoverhaul;
 
-import me.xemor.playershopoverhaul.commands.GTSCommand;
+import me.xemor.playershopoverhaul.commands.gts.GTSCommand;
+import me.xemor.playershopoverhaul.commands.pso.PSOCommand;
 import me.xemor.playershopoverhaul.userinterface.GlobalTradeSystem;
 import net.kyori.adventure.platform.bukkit.BukkitAudiences;
 import net.milkbowl.vault.economy.Economy;
-import org.bukkit.command.PluginCommand;
+import org.bukkit.Bukkit;
+import org.bukkit.command.*;
+import org.bukkit.entity.Player;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
+
+import java.util.List;
 
 public final class PlayerShopOverhaul extends JavaPlugin {
 
@@ -15,6 +20,7 @@ public final class PlayerShopOverhaul extends JavaPlugin {
     private GlobalTradeSystem globalTradeSystem;
     private BukkitAudiences bukkitAudiences;
     private Economy econ;
+    private boolean isCommandRegistered = true;
 
     @Override
     public void onEnable() {
@@ -22,12 +28,36 @@ public final class PlayerShopOverhaul extends JavaPlugin {
         playerShopOverhaul = this;
         configHandler = new ConfigHandler();
         globalTradeSystem = new GlobalTradeSystem();
+        bukkitAudiences = BukkitAudiences.create(this);
+        registerCommand();
+        PluginCommand pso = this.getCommand("pso");
+        PSOCommand psoCommand = new PSOCommand();
+        pso.setTabCompleter(psoCommand);
+        pso.setExecutor(psoCommand);
+        if (!setupEconomy()) this.getLogger().severe("Failed to setup economy plugin");
+    }
+
+    public void registerCommand() {
         PluginCommand gts = this.getServer().getPluginCommand("gts");
         GTSCommand gtsCommand = new GTSCommand();
         gts.setExecutor(gtsCommand);
         gts.setTabCompleter(gtsCommand);
-        bukkitAudiences = BukkitAudiences.create(this);
-        if (!setupEconomy()) this.getLogger().severe("Failed to setup economy plugin");
+        isCommandRegistered = true;
+    }
+
+    public void unregisterCommand() {
+        for (Player player : Bukkit.getOnlinePlayers()) {
+            player.closeInventory();
+        }
+        PluginCommand gts = this.getServer().getPluginCommand("gts");
+        gts.setExecutor((sender, command, label, args) -> true);
+        gts.setTabCompleter((sender, command, label, args) -> List.of());
+        isCommandRegistered = false;
+    }
+
+    public void reload() {
+        configHandler = new ConfigHandler();
+        globalTradeSystem = new GlobalTradeSystem();
     }
 
     @Override
@@ -45,6 +75,10 @@ public final class PlayerShopOverhaul extends JavaPlugin {
         }
         econ = rsp.getProvider();
         return true;
+    }
+
+    public boolean isCommandRegistered() {
+        return isCommandRegistered;
     }
 
     public BukkitAudiences getBukkitAudiences() {

@@ -13,3 +13,42 @@ listing:
   lore:
     - "<reset><gray><i>Price: <price>"
     - "<reset><gray><i>Stock: <stock>"
+GUI:
+  forwardArrow:
+    type: ARROW
+    metadata:
+      displayName: "Next Page"
+      lore:
+        - "<gray>Current Page: <page_number>"
+  backArrow:
+    type: ARROW
+    metadata:
+      displayName: "Previous Page"
+      lore:
+        - "<gray>Current Page: <page_number>"
+  refresh:
+    type: STRUCTURE_VOID
+    metadata:
+      displayName: "Refresh"
+      lore:
+        - "<gray>Update market information"
+  listings:
+    type: CHEST
+    metadata:
+      displayName: "My Listings"
+      lore:
+        - "<gray>View and remove your current listings"
+  menuBackButton:
+    type: BARRIER
+    metadata:
+      displayName: "<red>Back"
+      lore:
+        - "<gray>Return to the previous menu!"
+  search:
+    type: OAK_SIGN
+    metadata:
+      displayName: "Search"
+      lore:
+        - "<gray>Search through all items on the GTS"
+        - "<gray>If you want to clear your search,"
+        - "<gray>don't write anything and hit done"

@@ -26,6 +26,7 @@ dependencies {
     shadow("mysql:mysql-connector-java:8.0.29")
     shadow("com.zaxxer:HikariCP:5.0.1")
     shadow("org.xerial:sqlite-jdbc:3.36.0.3")
+    shadow("me.xemor:configurationdata:1.18.0-SNAPSHOT")
 }
 
 java {

@@ -13,10 +13,18 @@ import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
 
 public class SQLiteStorage extends SQLStorage {
     public SQLiteStorage(ConfigHandler configHandler) {
         super(configHandler);
+    }
+
+    @Override
+    public void setup() {
+        initSQLiteDataSource();
+        threads = Executors.newFixedThreadPool(1);
+        setupTable("sqlitesetup.sql");
     }
 
     @Override
@@ -71,12 +79,7 @@ public class SQLiteStorage extends SQLStorage {
                     return;
                 }
                 for (PurchasedListing purchasedListing : purchasedListings) { //pay the people who put the listings up
-                    PreparedStatement deposit = conn.prepareStatement(
-                            "INSERT INTO payment (sellerID, serverID, toPay) VALUES(?, ?, ?)"
-                    );
-                    deposit.setBytes(1, getUUIDBinary(purchasedListing.sellerID));
-                    deposit.setInt(2, purchasedListing.serverID());
-                    deposit.setDouble(3, purchasedListing.toPay());
+                    depositPayment(purchasedListing.sellerID(), purchasedListing.toPay());
                 }
                 StringJoiner joiner = new StringJoiner(",");
                 for (Integer integer : forRemoval) {
@@ -105,6 +108,10 @@ public class SQLiteStorage extends SQLStorage {
         return completableFuture;
     }
 
-    private record PurchasedListing(UUID sellerID, int serverID, double toPay) {}
+    private void initSQLiteDataSource() {
+        source = new DatabaseSource();
+        testDataSource(source);
+    }
+
 
 }

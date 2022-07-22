@@ -1,7 +1,7 @@
-package me.xemor.playershopoverhaul.commands;
+package me.xemor.playershopoverhaul.commands.gts;
 
+import me.xemor.playershopoverhaul.commands.SubCommand;
 import me.xemor.playershopoverhaul.userinterface.GlobalTradeSystem;
-import me.xemor.playershopoverhaul.Listing;
 import me.xemor.playershopoverhaul.PlayerShopOverhaul;
 import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
@@ -13,17 +13,15 @@ import java.util.List;
 
 public class SellItemCommand implements SubCommand {
 
-    GlobalTradeSystem tradeSystem = PlayerShopOverhaul.getInstance().getGlobalTradeSystem();
-
     @Override
     public void onCommand(CommandSender sender, String[] args) {
-        if (sender instanceof Player) {
+        if (sender instanceof Player && sender.hasPermission("playershopoverhaul.gts.sell")) {
             Player player = (Player) sender;
             if (args.length == 2) {
                 ItemStack itemInMainHand = player.getInventory().getItemInMainHand();
                 if (itemInMainHand.getType() != Material.AIR) {
                     double pricePer = Double.parseDouble(args[1]) / itemInMainHand.getAmount();
-                    tradeSystem.getStorage().registerListing(player.getUniqueId(), itemInMainHand, itemInMainHand.getAmount(), pricePer);
+                    PlayerShopOverhaul.getInstance().getGlobalTradeSystem().getStorage().registerListing(player.getUniqueId(), itemInMainHand, itemInMainHand.getAmount(), pricePer);
                     itemInMainHand.setAmount(0);
                 }
             }

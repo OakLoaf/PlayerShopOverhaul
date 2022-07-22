@@ -1,13 +1,15 @@
 package me.xemor.playershopoverhaul.userinterface;
 
+import me.xemor.playershopoverhaul.ConfigHandler;
 import me.xemor.playershopoverhaul.Listing;
 import me.xemor.playershopoverhaul.Market;
 import me.xemor.playershopoverhaul.PlayerShopOverhaul;
+import me.xemor.playershopoverhaul.storage.CacheStorage;
+import me.xemor.playershopoverhaul.storage.SQLStorage;
 import me.xemor.playershopoverhaul.storage.SQLiteStorage;
 import me.xemor.playershopoverhaul.storage.Storage;
 import me.xemor.userinterface.ChestInterface;
 import me.xemor.userinterface.TextInterface;
-import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
@@ -32,25 +34,33 @@ public class GlobalTradeSystem implements Listener {
 
     public GlobalTradeSystem() {
         textInterface.title("Search");
-        storage = new SQLiteStorage(PlayerShopOverhaul.getInstance().getConfigHandler());
+        ConfigHandler configHandler = PlayerShopOverhaul.getInstance().getConfigHandler();
+        if (configHandler.getDatabaseType().equals("MySQL")) {
+            storage = new CacheStorage(new SQLStorage(configHandler));
+        }
+        else {
+            storage = new CacheStorage(new SQLiteStorage(configHandler));
+        }
+        storage.setup();
     }
 
     public void showTradeSystemView(Player player) {
         ChestInterface<GTSData> chestInterface = new ChestInterface<>("Global Trade System", 5, new GTSData("", 0));
         GTSData data = chestInterface.getInteractions().getData();
-        ItemStack search = search();
-        ItemStack myListings = listings();
-        ItemStack forwardArrow = forwardArrow(data);
-        ItemStack backArrow = backArrow(data);
+        ItemStack search = PlayerShopOverhaul.getInstance().getConfigHandler().getSearch();
+        ItemStack myListings = PlayerShopOverhaul.getInstance().getConfigHandler().getListings();
+        ItemStack forwardArrow = PlayerShopOverhaul.getInstance().getConfigHandler().getForwardArrow();
+        ItemStack backArrow = PlayerShopOverhaul.getInstance().getConfigHandler().getBackArrow();
+        ItemStack refresh = PlayerShopOverhaul.getInstance().getConfigHandler().getRefresh();
         chestInterface.calculateInventoryContents(
                 new String[] {
-                        "         ",
+                        "    R    ",
                         "         ",
                         "B       F",
                         "         ",
                         "L       S"
                 },
-                Map.of('B', backArrow, 'F', forwardArrow, 'L', myListings, 'S', search)
+                Map.of('B', backArrow, 'F', forwardArrow, 'L', myListings, 'S', search, 'R', refresh)
         );
         chestInterface.getInteractions().addSimpleInteraction(forwardArrow, (otherPlayer) -> {
             if (chestInterface.getInventory().getItem(10) != null) data.setPageNumber(data.getPageNumber() + 1);
@@ -61,6 +71,7 @@ public class GlobalTradeSystem implements Listener {
             updateTradeSystemView(player, chestInterface);
         });
         chestInterface.getInteractions().addSimpleInteraction(myListings, this::showListings);
+        chestInterface.getInteractions().addSimpleInteraction(refresh, this::showTradeSystemView);
         chestInterface.getInteractions().addSimpleInteraction(search, (otherPlayer) -> {
             player.closeInventory();
             new BukkitRunnable() {
@@ -151,12 +162,11 @@ public class GlobalTradeSystem implements Listener {
     }
 
     private void updateListingsView(Player player, ChestInterface<GTSData> chestInterface) {
-        GTSData data = chestInterface.getInteractions().getData();
-        ItemStack forwardArrow = forwardArrow(data);
-        ItemStack backArrow = backArrow(data);
-        ItemStack backButton = menuBackButton();
+        ItemStack forwardArrow = PlayerShopOverhaul.getInstance().getConfigHandler().getForwardArrow();
+        ItemStack backArrow = PlayerShopOverhaul.getInstance().getConfigHandler().getBackArrow();
+        ItemStack backButton = PlayerShopOverhaul.getInstance().getConfigHandler().getMenuBackButton();
         chestInterface.calculateInventoryContents(new String[] {
-                        "         ",
+                        "    R    ",
                         "         ",
                         "B       F",
                         "         ",
@@ -216,48 +226,6 @@ public class GlobalTradeSystem implements Listener {
         CompletableFuture<Double> moneyFuture = storage.claimPayment(player.getUniqueId());
         moneyFuture.thenAccept((money) -> PlayerShopOverhaul.getInstance().getEconomy().depositPlayer(player, money));
         return moneyFuture;
-    }
-
-    private ItemStack forwardArrow(GTSData data) {
-        ItemStack forwardArrow = new ItemStack(Material.ARROW);
-        ItemMeta forwardArrowMeta = forwardArrow.getItemMeta();
-        forwardArrowMeta.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&rNext Page"));
-        forwardArrowMeta.setLore(List.of(ChatColor.translateAlternateColorCodes('&', "&7Current Page: " + data.getPageNumber())));
-        forwardArrow.setItemMeta(forwardArrowMeta);
-        return forwardArrow;
-    }
-
-    private ItemStack backArrow(GTSData data) {
-        ItemStack backArrow = new ItemStack(Material.ARROW);
-        ItemMeta backArrowMeta = backArrow.getItemMeta();
-        backArrowMeta.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&rPrevious Page"));
-        backArrowMeta.setLore(List.of(ChatColor.translateAlternateColorCodes('&', "&7Current Page: " + data.getPageNumber())));
-        backArrow.setItemMeta(backArrowMeta);
-        return backArrow;
-    }
-
-    private ItemStack menuBackButton() {
-        ItemStack back = new ItemStack(Material.BARRIER);
-        ItemMeta backMeta = back.getItemMeta();
-        backMeta.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&rBack"));
-        back.setItemMeta(backMeta);
-        return back;
-    }
-
-    private ItemStack search() {
-        ItemStack search = new ItemStack(Material.OAK_SIGN);
-        ItemMeta searchMeta = search.getItemMeta();
-        searchMeta.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&rSearch"));
-        search.setItemMeta(searchMeta);
-        return search;
-    }
-
-    private ItemStack listings() {
-        ItemStack myListings = new ItemStack(Material.CHEST);
-        ItemMeta listingsMeta = myListings.getItemMeta();
-        listingsMeta.setDisplayName(ChatColor.translateAlternateColorCodes('&', "&rMy Listings"));
-        myListings.setItemMeta(listingsMeta);
-        return myListings;
     }
 
     public Storage getStorage() {

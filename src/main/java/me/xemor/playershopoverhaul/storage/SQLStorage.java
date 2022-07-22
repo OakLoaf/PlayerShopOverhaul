@@ -17,7 +17,6 @@ import java.nio.ByteBuffer;
 import java.sql.*;
 import java.util.*;
 import java.util.concurrent.*;
-import java.util.concurrent.locks.ReentrantLock;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 
@@ -26,29 +25,9 @@ public class SQLStorage implements Storage {
     private final ConfigHandler configHandler;
     DatabaseSource source;
     ExecutorService threads;
-    private final ReentrantLock lock = new ReentrantLock();
 
     public SQLStorage(ConfigHandler configHandler) {
         this.configHandler = configHandler;
-        String type = configHandler.getDatabaseType();
-        String name = configHandler.getDatabaseName();
-        String host = configHandler.getDatabaseHost();
-        int port = configHandler.getDatabasePort();
-        String user = configHandler.getDatabaseUsername();
-        String password = configHandler.getDatabasePassword();
-        if (type.equalsIgnoreCase("MySQL")) {
-            initMySQLDataSource(name, host, port, user, password);
-            // Creates a pool that always has one thread ready,
-            // can have up to 4 threads,
-            // and times out extra threads after 60 seconds of inactivity
-            threads = new ThreadPoolExecutor(1, 8,
-                    60L, TimeUnit.SECONDS,
-                    new SynchronousQueue<>());
-        } else if (type.equalsIgnoreCase("SQLite")) {
-            initSQLiteDataSource(name, host, port, user, password);
-            threads = Executors.newFixedThreadPool(1);
-        }
-        setupTable();
     }
 
     private void initMySQLDataSource(String dbName, String host, int port, String user, String password) {
@@ -65,12 +44,7 @@ public class SQLStorage implements Storage {
         testDataSource(source);
     }
 
-    private void initSQLiteDataSource(String dbName, String host, int port, String user, String password) {
-        source = new DatabaseSource();
-        testDataSource(source);
-    }
-
-    private void testDataSource(DatabaseSource dataSource) {
+    void testDataSource(DatabaseSource dataSource) {
         try (Connection conn = dataSource.getConnection()) {
             if (!conn.isValid(1000)) {
                 throw new SQLException("Could not establish database connection.");
@@ -80,9 +54,9 @@ public class SQLStorage implements Storage {
         }
     }
 
-    private void setupTable() {
+    void setupTable(String fileName) {
         String setup;
-        try (InputStream in = SQLStorage.class.getClassLoader().getResourceAsStream("dbsetup.sql")) {
+        try (InputStream in = SQLStorage.class.getClassLoader().getResourceAsStream(fileName)) {
             setup = new BufferedReader(new InputStreamReader(in)).lines().collect(Collectors.joining(""));
         } catch (IOException e) {
             PlayerShopOverhaul.getInstance().getLogger().log(Level.SEVERE, "Could not read db setup file.", e);
@@ -101,6 +75,23 @@ public class SQLStorage implements Storage {
     }
 
     @Override
+    public void setup() {
+        String name = configHandler.getDatabaseName();
+        String host = configHandler.getDatabaseHost();
+        int port = configHandler.getDatabasePort();
+        String user = configHandler.getDatabaseUsername();
+        String password = configHandler.getDatabasePassword();
+        initMySQLDataSource(name, host, port, user, password);
+        // Creates a pool that always has one thread ready,
+        // can have up to 4 threads,
+        // and times out extra threads after 60 seconds of inactivity
+        threads = new ThreadPoolExecutor(1, 8,
+                60L, TimeUnit.SECONDS,
+                new SynchronousQueue<>());
+        setupTable("mysqlsetup.sql");
+    }
+
+    @Override
     public void registerListing(UUID uuid, ItemStack item, int stock, double pricePer) {
         ItemStack representativeItem = item.clone();
         representativeItem.setAmount(1);
@@ -110,6 +101,7 @@ public class SQLStorage implements Storage {
             )) {
                 int id = getMarketID(conn, representativeItem);
                 if (id == -1) { createMarket(conn, representativeItem); id = getMarketID(conn, representativeItem); }
+                PlayerShopOverhaul.getInstance().getLogger().fine(String.valueOf(id));
                 byte[] uuidBytes = getUUIDBinary(uuid);
                 stmt.setBytes(1, uuidBytes);
                 stmt.setInt(2, PlayerShopOverhaul.getInstance().getConfigHandler().getServerID());
@@ -192,7 +184,9 @@ public class SQLStorage implements Storage {
         )) {
             byte[] binaryItem = ItemSerialization.itemStackToBinary(item);
             stmt.setBytes(1, binaryItem);
-            return stmt.executeQuery().getInt(1);
+            ResultSet resultSet = stmt.executeQuery();
+            resultSet.next();
+            return resultSet.getInt(1);
         } catch (SQLException e) {
             return -1;
         }
@@ -206,7 +200,7 @@ public class SQLStorage implements Storage {
         )) {
             stmt.setBytes(1, ItemSerialization.itemStackToBinary(item));
             stmt.setString(2, Market.getName(item));
-            stmt.execute(); //should be the id of the market that was just created
+            stmt.execute();
         } catch (SQLException e) {
             e.printStackTrace();
         }
@@ -258,22 +252,24 @@ public class SQLStorage implements Storage {
                     SELECT id
                     FROM payment
                     WHERE sellerID = ?
+                    AND serverID = ?
                     """
             )) {
+                stmt.setBytes(1, getUUIDBinary(uuid));
+                stmt.setInt(2, PlayerShopOverhaul.getInstance().getConfigHandler().getServerID());
+                ResultSet resultSet = stmt.executeQuery();
                 List<Integer> ids = new ArrayList<>();
-                ResultSet resultSet = stmt.getResultSet();
                 while (resultSet.next()) {
                     ids.add(resultSet.getInt("id"));
                 }
                 String idsSQLSet = createSQLSet(ids);
-                if ("".equals(idsSQLSet)) { future.complete(0D); }
+                if ("".equals(idsSQLSet)) { future.complete(0D); return; }
                 PreparedStatement sum = conn.prepareStatement(String.format("""
                     SELECT SUM(toPay) AS pay
                     FROM payment
                     WHERE id IN %s
                 """, idsSQLSet));
-                sum.executeQuery();
-                resultSet = sum.getResultSet();
+                resultSet = sum.executeQuery();
                 resultSet.next();
                 double toPay = resultSet.getDouble("pay");
                 PreparedStatement delete = conn.prepareStatement(String.format("""
@@ -323,18 +319,15 @@ public class SQLStorage implements Storage {
     @Override
     public CompletableFuture<List<Market>> getMarkets(List<Listing> listings) {
         CompletableFuture<List<Market>> completableFuture = new CompletableFuture<>();
+        if (listings.size() == 0) { completableFuture.complete(Collections.emptyList()); return completableFuture; }
         threads.submit(() -> {
             String rawStatement = """
                 SELECT markets.id, item, listings.id
                 FROM markets
                 JOIN listings ON markets.id = listings.marketID
-                WHERE listings.id IN (%s)
+                WHERE listings.id IN %s;
                 """;
-            StringJoiner joiner = new StringJoiner(",");
-            for (Listing listing : listings) {
-                joiner.add(String.valueOf(listing.getID()));
-            }
-            rawStatement = String.format(rawStatement, joiner);
+            rawStatement = String.format(rawStatement, createSQLSet(listings.stream().map(Listing::getID).collect(Collectors.toList())));
             try (Connection conn = source.getConnection(); PreparedStatement stmt = conn.prepareStatement(
                     rawStatement
             )) {
@@ -358,13 +351,14 @@ public class SQLStorage implements Storage {
                 List<Market> markets = Arrays.stream(objects).map((object) -> (Market) object).toList();
                 completableFuture.complete(markets);
             } catch (SQLException e) {
+                System.out.println(rawStatement);
                 e.printStackTrace();
             }
         });
         return completableFuture;
     }
 
-    private void depositPayment(UUID uuid, double toPay) {
+    protected void depositPayment(UUID uuid, double toPay) {
         try (Connection conn = source.getConnection(); PreparedStatement stmt = conn.prepareStatement(
                 """
                 INSERT INTO payment(sellerID, serverID, toPay) VALUES(?, ?, ?);
@@ -373,6 +367,7 @@ public class SQLStorage implements Storage {
             stmt.setBytes(1, getUUIDBinary(uuid));
             stmt.setInt(2, PlayerShopOverhaul.getInstance().getConfigHandler().getServerID());
             stmt.setDouble(3, toPay);
+            stmt.execute();
         } catch (SQLException | IOException e) {
             e.printStackTrace();
         }
@@ -383,16 +378,13 @@ public class SQLStorage implements Storage {
         CompletableFuture<EconomyResponse> completableFuture = new CompletableFuture<>();
         threads.submit(() -> {
             try (Connection conn = source.getConnection()) {
-                conn.setAutoCommit(false);
                 PreparedStatement stmt = conn.prepareStatement(
                         """
-                        START TRANSACTION;
-                        SELECT listings.id AS lid, sellerID, stock, pricePer FROM listings
-                        JOIN markets ON listings.id = markets.id
+                        SELECT listings.id AS lid, sellerID, serverID, stock, pricePer FROM listings
+                        JOIN markets ON listings.marketID = markets.id
                         WHERE markets.id = ?
                         ORDER BY listings.pricePer ASC
                         LIMIT ?
-                        FOR UPDATE;
                         """
                 );
                 stmt.setInt(1, market.getID());
@@ -401,57 +393,61 @@ public class SQLStorage implements Storage {
                 int stockSum = 0;
                 double cost = 0;
                 List<Integer> forRemoval = new ArrayList<>();
-                HashMap<UUID, Double> sellerToPayment = new HashMap<>();
+                List<SQLiteStorage.PurchasedListing> purchasedListings = new ArrayList<>();
                 Listing listingForReinsertion = null;
+                int serverIDForReinsertion = -1;
                 while (resultSet.next()) {
                     if (stockSum > amount) break;
                     int id = resultSet.getInt("lid");
                     UUID sellerID = fromUUIDBinary(resultSet.getBytes("sellerID"));
                     int stock = resultSet.getInt("stock");
                     double pricePer = resultSet.getDouble("pricePer");
+                    int serverID = resultSet.getInt("serverID");
                     stockSum += stock;
                     double price = stock * pricePer;
                     forRemoval.add(id);
                     if (stockSum > amount) {
                         price -= (stockSum - amount) * pricePer;
                         listingForReinsertion = new Listing(id, sellerID, market.getID(), stockSum - amount, pricePer);
+                        serverIDForReinsertion = serverID;
                     }
-                    sellerToPayment.put(sellerID, price);
+                    purchasedListings.add(new SQLiteStorage.PurchasedListing(sellerID, serverID, price));
                     cost += price;
                 }
                 if (stockSum < amount) {
-                    conn.prepareStatement("COMMIT;").execute();
                     completableFuture.completeExceptionally(new IllegalStateException("There were not enough items on the market!"));
                     return;
                 }
                 Economy economy = PlayerShopOverhaul.getInstance().getEconomy();
                 EconomyResponse transaction = economy.withdrawPlayer(Bukkit.getOfflinePlayer(uuid), cost);
                 if (!transaction.transactionSuccess()) {
-                    conn.prepareStatement("COMMIT;").execute();
                     completableFuture.complete(transaction);
                     return;
                 }
-                for (Map.Entry<UUID, Double> entry : sellerToPayment.entrySet()) { //pay the people who put the listings up
-                    economy.depositPlayer(Bukkit.getOfflinePlayer(entry.getKey()), entry.getValue());
+                for (SQLiteStorage.PurchasedListing purchasedListing : purchasedListings) { //pay the people who put the listings up
+                    depositPayment(purchasedListing.sellerID(), purchasedListing.toPay());
                 }
-                String rawStmt = String.format("""
-                        DELETE FROM listings WHERE id IN (%s);
-                        %s
-                        COMMIT;
-                        """, createSQLSet(forRemoval),
-                        listingForReinsertion != null ? "INSERT INTO listings (uuid, stock, pricePer, marketID) VALUES(?, ?, ?, ?);" : "");
+                StringJoiner joiner = new StringJoiner(",");
+                for (Integer integer : forRemoval) {
+                    joiner.add(String.valueOf(integer));
+                }
+                String rawStmt = String.format("DELETE FROM listings WHERE id IN (%s);", joiner);
                 stmt = conn.prepareStatement(
                         rawStmt
                 );
-                if (listingForReinsertion != null) {
-                    stmt.setBytes(1, getUUIDBinary(listingForReinsertion.getSellerID()));
-                    stmt.setInt(2, listingForReinsertion.getStock());
-                    stmt.setDouble(3, listingForReinsertion.getPricePer());
-                    stmt.setInt(4, market.getID());
-                }
                 stmt.execute();
+                if (listingForReinsertion != null) {
+                    PreparedStatement insert = conn.prepareStatement("INSERT INTO listings (sellerID, serverID, stock, pricePer, marketID) VALUES(?, ?, ?, ?, ?);");
+                    insert.setBytes(1, getUUIDBinary(listingForReinsertion.getSellerID()));
+                    insert.setInt(2, serverIDForReinsertion);
+                    insert.setInt(3, listingForReinsertion.getStock());
+                    insert.setDouble(4, listingForReinsertion.getPricePer());
+                    insert.setInt(5, market.getID());
+                    insert.execute();
+                }
                 completableFuture.complete(transaction);
-            } catch (SQLException | IOException e) {
+            } catch (Exception e) {
+                completableFuture.completeExceptionally(e);
                 e.printStackTrace();
             }
         });
@@ -463,7 +459,7 @@ public class SQLStorage implements Storage {
         for (Integer integer : ints) {
             joiner.add(String.valueOf(integer));
         }
-        return joiner.toString();
+        return "(" + joiner.toString() + ")";
     }
 
     byte[] getUUIDBinary(UUID uuid) throws IOException {
@@ -500,4 +496,6 @@ public class SQLStorage implements Storage {
             else return DriverManager.getConnection("jdbc:sqlite:" + new File(PlayerShopOverhaul.getInstance().getDataFolder(), "gts.db").getAbsolutePath());
         }
     }
+
+    protected static record PurchasedListing(UUID sellerID, int serverID, double toPay) {}
 }

@@ -1,6 +1,7 @@
-package me.xemor.playershopoverhaul.commands;
+package me.xemor.playershopoverhaul.commands.gts;
 
 import me.xemor.playershopoverhaul.PlayerShopOverhaul;
+import me.xemor.playershopoverhaul.commands.SubCommand;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
@@ -15,7 +16,7 @@ public class ShowListingCommand implements SubCommand {
 
     @Override
     public void onCommand(CommandSender sender, String[] args) {
-        if (sender instanceof Player) {
+        if (sender instanceof Player && sender.hasPermission("playershopoverhaul.gts.show")) {
             Player player = (Player) sender;
             PlayerShopOverhaul.getInstance().getGlobalTradeSystem().showTradeSystemView(player);
         }

@@ -1,5 +1,8 @@
-package me.xemor.playershopoverhaul.commands;
+package me.xemor.playershopoverhaul.commands.gts;
 
+
+import me.xemor.playershopoverhaul.commands.SubCommand;
+import me.xemor.playershopoverhaul.commands.gts.GTSCommandType;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
@@ -11,29 +14,29 @@ import java.util.*;
 
 public class GTSCommand implements CommandExecutor, TabExecutor {
 
-    EnumMap<SubCommandType, SubCommand> map = new EnumMap<>(SubCommandType.class);
+    private final EnumMap<GTSCommandType, SubCommand> map = new EnumMap<>(GTSCommandType.class);
 
     public GTSCommand() {
-        map.put(SubCommandType.SELL, new SellItemCommand());
-        map.put(SubCommandType.SHOW, new ShowListingCommand());
-        map.put(SubCommandType.HELP, new HelpCommand());
-        map.put(SubCommandType.CLAIM, new ClaimCommand());
+        map.put(GTSCommandType.SELL, new SellItemCommand());
+        map.put(GTSCommandType.SHOW, new ShowListingCommand());
+        map.put(GTSCommandType.HELP, new HelpCommand());
+        map.put(GTSCommandType.CLAIM, new ClaimCommand());
     }
 
     @Override
     public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
-        SubCommandType subCommandType = null;
+        GTSCommandType gtsCommandType = null;
         if (args.length == 0) {
-            subCommandType = SubCommandType.SHOW;
+            gtsCommandType = GTSCommandType.SHOW;
         }
         if (args.length >= 1) {
             try {
-                subCommandType = SubCommandType.valueOf(args[0].toUpperCase());
+                gtsCommandType = GTSCommandType.valueOf(args[0].toUpperCase());
             } catch (IllegalArgumentException e) {
-                subCommandType = SubCommandType.HELP;
+                gtsCommandType = GTSCommandType.HELP;
             }
         }
-        map.get(subCommandType).onCommand(sender, args);
+        map.get(gtsCommandType).onCommand(sender, args);
         return true;
     }
 
@@ -42,7 +45,7 @@ public class GTSCommand implements CommandExecutor, TabExecutor {
     public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, @NotNull String[] args) {
         if (args.length == 1) {
             List<String> list = new ArrayList<>();
-            for (SubCommandType type : SubCommandType.values()) {
+            for (GTSCommandType type : GTSCommandType.values()) {
                 if (type.name().contains(args[0].toUpperCase())) {
                     list.add(type.name().toLowerCase());
                 }
@@ -50,7 +53,7 @@ public class GTSCommand implements CommandExecutor, TabExecutor {
             return list;
         } else {
             try {
-                SubCommandType type = SubCommandType.valueOf(args[0].toUpperCase());
+                GTSCommandType type = GTSCommandType.valueOf(args[0].toUpperCase());
                 return map.get(type).onTabComplete(sender, args);
             } catch (IllegalArgumentException e) {
                 return Collections.emptyList();
