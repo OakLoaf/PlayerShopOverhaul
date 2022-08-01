@@ -18,14 +18,10 @@ GUI:
     type: ARROW
     metadata:
       displayName: "Next Page"
-      lore:
-        - "<gray>Current Page: <page_number>"
   backArrow:
     type: ARROW
     metadata:
       displayName: "Previous Page"
-      lore:
-        - "<gray>Current Page: <page_number>"
   refresh:
     type: STRUCTURE_VOID
     metadata:

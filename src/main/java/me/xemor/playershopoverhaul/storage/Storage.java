@@ -3,7 +3,6 @@ package me.xemor.playershopoverhaul.storage;
 import me.xemor.playershopoverhaul.Listing;
 import me.xemor.playershopoverhaul.Market;
 import net.milkbowl.vault.economy.EconomyResponse;
-import org.bukkit.entity.Player;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.List;

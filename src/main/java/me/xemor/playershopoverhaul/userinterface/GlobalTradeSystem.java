@@ -10,6 +10,8 @@ import me.xemor.playershopoverhaul.storage.SQLiteStorage;
 import me.xemor.playershopoverhaul.storage.Storage;
 import me.xemor.userinterface.ChestInterface;
 import me.xemor.userinterface.TextInterface;
+import org.bukkit.Bukkit;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.NamespacedKey;
 import org.bukkit.entity.Player;
@@ -21,18 +23,23 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
 
+import javax.xml.stream.events.Namespace;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 
 public class GlobalTradeSystem implements Listener {
 
-    private final NamespacedKey marketIDKey = new NamespacedKey(PlayerShopOverhaul.getInstance(), "marketID");
-    private final NamespacedKey listingsIDKey = new NamespacedKey(PlayerShopOverhaul.getInstance(), "listingsID");
+    private static NamespacedKey marketIDKey;
+    private static NamespacedKey listingsIDKey;
+    private static NamespacedKey priceKey;
     private final TextInterface textInterface = new TextInterface();
     private final Storage storage;
 
     public GlobalTradeSystem() {
+        marketIDKey = new NamespacedKey(PlayerShopOverhaul.getInstance(), "marketID");
+        listingsIDKey = new NamespacedKey(PlayerShopOverhaul.getInstance(), "listingsID");
+        priceKey =new NamespacedKey(PlayerShopOverhaul.getInstance(), "price");
         textInterface.title("Search");
         ConfigHandler configHandler = PlayerShopOverhaul.getInstance().getConfigHandler();
         if (configHandler.getDatabaseType().equals("MySQL")) {
@@ -87,7 +94,7 @@ public class GlobalTradeSystem implements Listener {
                         }.runTask(PlayerShopOverhaul.getInstance());
                     });
                 }
-            }.runTaskLater(PlayerShopOverhaul.getInstance(), 1L);
+            }.runTaskLater(PlayerShopOverhaul.getInstance(), 2L);
         });
         chestInterface.getInteractions().addInteraction(
                 (item -> item != null && item.hasItemMeta() &&
@@ -95,25 +102,50 @@ public class GlobalTradeSystem implements Listener {
                 ),
                 (clickPlayer, item, clickType) -> {
                     int marketID = item.getItemMeta().getPersistentDataContainer().get(marketIDKey, PersistentDataType.INTEGER);
+                    double cachedGoingPrice = item.getItemMeta().getPersistentDataContainer().get(priceKey, PersistentDataType.DOUBLE);
                     CompletableFuture<Market> marketFuture = storage.getMarket(marketID);
-                    marketFuture.thenAccept((market) -> {
-                        if (clickType == ClickType.LEFT) {
-                            storage.purchaseFromMarket(clickPlayer.getUniqueId(), market, 1).thenAccept((response) -> {
-                                if (response.transactionSuccess()) clickPlayer.getInventory().addItem(market.getItem());
-                            }).exceptionally((throwable -> {
-                                clickPlayer.sendMessage("There is insufficient stock!");
-                                return null;
-                            }));
-                        }
-                        else if (clickType == ClickType.SHIFT_LEFT) {
-                            storage.purchaseFromMarket(clickPlayer.getUniqueId(), market, 64).thenAccept((response) -> {
-                                ItemStack toGive = market.getItem().clone();
-                                toGive.setAmount(64);
-                                if (response.transactionSuccess()) clickPlayer.getInventory().addItem(toGive);
-                            }).exceptionally((throwable -> {
-                                clickPlayer.sendMessage("There is insufficient stock to buy 64!");
-                                return null;
-                            }));
+                    marketFuture.exceptionally((ignored) -> {
+                        Bukkit.getScheduler().runTask(PlayerShopOverhaul.getInstance(), () -> clickPlayer.sendMessage(ChatColor.RED + "There is insufficient stock!"));
+                        return null;
+                    })
+                    .thenAccept((market) -> {
+                        try {
+                            if (market.getGoingPrice() > cachedGoingPrice * 1.1) {
+                                Bukkit.getScheduler().runTask(PlayerShopOverhaul.getInstance(), () -> clickPlayer.sendMessage(ChatColor.RED + "Please try again and refresh/reopen the store in one minute! The price has increased by more than 10% since it was read."));
+                                return;
+                            }
+                            if (clickType == ClickType.LEFT) {
+                                storage.purchaseFromMarket(clickPlayer.getUniqueId(), market, 1).thenAccept((response) -> {
+                                    if (response.transactionSuccess()) {
+                                        clickPlayer.getInventory().addItem(market.getItem().clone());
+                                        Bukkit.getScheduler().runTask(PlayerShopOverhaul.getInstance(), () -> clickPlayer.sendMessage(ChatColor.GREEN + String.format("It was bought successfully for %.2f! You now have %.2f.", response.amount, response.balance)));
+                                    }
+                                    else {
+                                        Bukkit.getScheduler().runTask(PlayerShopOverhaul.getInstance(), () -> clickPlayer.sendMessage(ChatColor.RED + "You have insufficient funds!"));
+                                    }
+                                }).exceptionally((throwable -> {
+                                    Bukkit.getScheduler().runTask(PlayerShopOverhaul.getInstance(), () -> clickPlayer.sendMessage(ChatColor.RED + "There is insufficient stock!"));
+                                    return null;
+                                }));
+                            }
+                            else if (clickType == ClickType.SHIFT_LEFT) {
+                                storage.purchaseFromMarket(clickPlayer.getUniqueId(), market, 64).thenAccept((response) -> {
+                                    ItemStack toGive = market.getItem().clone();
+                                    toGive.setAmount(64);
+                                    if (response.transactionSuccess()) {
+                                        clickPlayer.getInventory().addItem(toGive);
+                                        Bukkit.getScheduler().runTask(PlayerShopOverhaul.getInstance(), () -> clickPlayer.sendMessage(ChatColor.GREEN + String.format("You have bought 64 successfully for %.2f! You now have %.2f.", response.amount, response.balance)));
+                                    }
+                                    else {
+                                        Bukkit.getScheduler().runTask(PlayerShopOverhaul.getInstance(), () -> clickPlayer.sendMessage(ChatColor.RED + "You have insufficient funds!"));
+                                    }
+                                }).exceptionally((throwable -> {
+                                    Bukkit.getScheduler().runTask(PlayerShopOverhaul.getInstance(), () -> clickPlayer.sendMessage(ChatColor.RED + "There is insufficient stock to buy 64!"));
+                                    return null;
+                                }));
+                            }
+                        } catch (Exception e) {
+                            e.printStackTrace();
                         }
                     });
                 }
@@ -226,6 +258,18 @@ public class GlobalTradeSystem implements Listener {
         CompletableFuture<Double> moneyFuture = storage.claimPayment(player.getUniqueId());
         moneyFuture.thenAccept((money) -> PlayerShopOverhaul.getInstance().getEconomy().depositPlayer(player, money));
         return moneyFuture;
+    }
+
+    public static NamespacedKey getMarketIDKey() {
+        return marketIDKey;
+    }
+
+    public static NamespacedKey getListingsIDKey() {
+        return listingsIDKey;
+    }
+
+    public static NamespacedKey getPriceKey() {
+        return priceKey;
     }
 
     public Storage getStorage() {

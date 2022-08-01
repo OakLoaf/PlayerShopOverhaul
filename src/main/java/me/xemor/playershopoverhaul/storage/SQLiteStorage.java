@@ -79,7 +79,7 @@ public class SQLiteStorage extends SQLStorage {
                     return;
                 }
                 for (PurchasedListing purchasedListing : purchasedListings) { //pay the people who put the listings up
-                    depositPayment(purchasedListing.sellerID(), purchasedListing.toPay());
+                    depositPayment(purchasedListing.sellerID(), purchasedListing.serverID(), purchasedListing.toPay());
                 }
                 StringJoiner joiner = new StringJoiner(",");
                 for (Integer integer : forRemoval) {

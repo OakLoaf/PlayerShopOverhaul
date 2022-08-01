@@ -39,7 +39,7 @@ public class SQLStorage implements Storage {
         props.setProperty("dataSource.password", password);
         props.setProperty("dataSource.databaseName", dbName);
         HikariConfig hikariConfig = new HikariConfig(props);
-        hikariConfig.setMaximumPoolSize(4);
+        hikariConfig.setMaximumPoolSize(8);
         source = new DatabaseSource(new HikariDataSource(hikariConfig));
         testDataSource(source);
     }
@@ -158,23 +158,34 @@ public class SQLStorage implements Storage {
     public CompletableFuture<Market> getMarket(int marketID) {
         CompletableFuture<Market> completableFuture = new CompletableFuture<>();
         threads.submit(() -> {
-            completableFuture.complete(getMarketBlocking(marketID));
+            Market market = getMarketBlocking(marketID);
+            if (market == null) {
+                completableFuture.completeExceptionally(new NullPointerException("Market is null!"));
+                return;
+            }
+            completableFuture.complete(market);
         });
         return completableFuture;
     }
 
     private Market getMarketBlocking(int marketID) {
         try (Connection conn = source.getConnection(); PreparedStatement stmt = conn.prepareStatement(
-                "SELECT * FROM markets WHERE id = ?"
+                """
+                SELECT PRICES.price AS price, PRICES.stock AS stock, markets.item AS item
+                FROM markets
+                JOIN (SELECT min(pricePer) AS price, sum(stock) AS stock, marketID FROM listings GROUP BY marketID) as PRICES
+                ON PRICES.marketID = markets.id
+                WHERE markets.id = ?
+                """
         )) {
             stmt.setInt(1, marketID);
             ResultSet resultSet = stmt.executeQuery();
             resultSet.next();
             byte[] itemBytes = resultSet.getBytes("item");
-            return new Market(marketID, ItemSerialization.binaryToItemStack(itemBytes));
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+            double goingPrice = resultSet.getDouble("price");
+            int stock = resultSet.getInt("stock");
+            return new Market(marketID, ItemSerialization.binaryToItemStack(itemBytes), goingPrice, stock);
+        } catch (SQLException e) {}
         return null;
     }
 
@@ -263,7 +274,7 @@ public class SQLStorage implements Storage {
                     ids.add(resultSet.getInt("id"));
                 }
                 String idsSQLSet = createSQLSet(ids);
-                if ("".equals(idsSQLSet)) { future.complete(0D); return; }
+                if ("()".equals(idsSQLSet)) { future.complete(0D); return; }
                 PreparedStatement sum = conn.prepareStatement(String.format("""
                     SELECT SUM(toPay) AS pay
                     FROM payment
@@ -296,9 +307,10 @@ public class SQLStorage implements Storage {
         CompletableFuture<List<Listing>> completableFuture = new CompletableFuture<>();
         threads.submit(() -> {
             try (Connection conn = source.getConnection(); PreparedStatement stmt = conn.prepareStatement(
-                    "SELECT * FROM listings WHERE sellerID = ?"
+                    "SELECT * FROM listings WHERE sellerID = ? AND serverID = ?"
             )) {
                 stmt.setBytes(1, getUUIDBinary(uuid));
+                stmt.setInt(2, PlayerShopOverhaul.getInstance().getConfigHandler().getServerID());
                 ResultSet resultSet = stmt.executeQuery();
                 List<Listing> listings = new ArrayList<>();
                 while (resultSet.next()) {
@@ -358,14 +370,14 @@ public class SQLStorage implements Storage {
         return completableFuture;
     }
 
-    protected void depositPayment(UUID uuid, double toPay) {
+    protected void depositPayment(UUID uuid, int serverID, double toPay) {
         try (Connection conn = source.getConnection(); PreparedStatement stmt = conn.prepareStatement(
                 """
                 INSERT INTO payment(sellerID, serverID, toPay) VALUES(?, ?, ?);
                 """
         )) {
             stmt.setBytes(1, getUUIDBinary(uuid));
-            stmt.setInt(2, PlayerShopOverhaul.getInstance().getConfigHandler().getServerID());
+            stmt.setInt(2, serverID);
             stmt.setDouble(3, toPay);
             stmt.execute();
         } catch (SQLException | IOException e) {
@@ -425,7 +437,7 @@ public class SQLStorage implements Storage {
                     return;
                 }
                 for (SQLiteStorage.PurchasedListing purchasedListing : purchasedListings) { //pay the people who put the listings up
-                    depositPayment(purchasedListing.sellerID(), purchasedListing.toPay());
+                    depositPayment(purchasedListing.sellerID(), purchasedListing.serverID(), purchasedListing.toPay());
                 }
                 StringJoiner joiner = new StringJoiner(",");
                 for (Integer integer : forRemoval) {

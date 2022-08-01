@@ -143,9 +143,13 @@ public class Market implements Comparable<Market> {
         List<String> lore = new ArrayList<>(configHandler.getListingLore(goingPrice, stock));
         itemMeta.setLore(lore);
         itemMeta.getPersistentDataContainer().set(
-                new NamespacedKey(PlayerShopOverhaul.getInstance(), "marketID"),
+                GlobalTradeSystem.getMarketIDKey(),
                 PersistentDataType.INTEGER,
                 marketID);
+        itemMeta.getPersistentDataContainer().set(
+                GlobalTradeSystem.getPriceKey(),
+                PersistentDataType.DOUBLE,
+                goingPrice);
         representation.setItemMeta(itemMeta);
         return representation;
     }

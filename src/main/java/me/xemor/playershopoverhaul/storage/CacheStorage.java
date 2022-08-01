@@ -16,7 +16,7 @@ public class CacheStorage implements Storage {
 
     private final Storage storage;
     private long lastCheckedAge = Long.MIN_VALUE;
-    private final LRUCache<MarketArgs, CompletableFuture<List<Market>>> lruCache = new LRUCache<>(10);
+    private final LRUCache<MarketArgs, CompletableFuture<List<Market>>> lruCache = new LRUCache<>(25);
 
     public CacheStorage(Storage storage) {
         this.storage = storage;
