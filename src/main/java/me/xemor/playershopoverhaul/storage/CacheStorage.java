@@ -1,8 +1,8 @@
 package me.xemor.playershopoverhaul.storage;
 
 import com.mysql.cj.util.LRUCache;
-import me.xemor.playershopoverhaul.ConfigHandler;
 import me.xemor.playershopoverhaul.Listing;
+import me.xemor.playershopoverhaul.PricedMarket;
 import me.xemor.playershopoverhaul.Market;
 import net.milkbowl.vault.economy.EconomyResponse;
 import org.bukkit.inventory.ItemStack;
@@ -15,8 +15,11 @@ import java.util.concurrent.CompletableFuture;
 public class CacheStorage implements Storage {
 
     private final Storage storage;
-    private long lastCheckedAge = Long.MIN_VALUE;
-    private final LRUCache<MarketArgs, CompletableFuture<List<Market>>> lruCache = new LRUCache<>(25);
+    private long getMarketsLastChecked = Long.MIN_VALUE;
+    private final LRUCache<MarketArgs, CompletableFuture<List<PricedMarket>>> marketsCache = new LRUCache<>(25);
+    private final LRUCache<UUID, CompletableFuture<String>> usernames = new LRUCache<>(3);
+    private final LRUCache<String, CompletableFuture<UUID>> uuids = new LRUCache<>(10);
+
 
     public CacheStorage(Storage storage) {
         this.storage = storage;
@@ -48,13 +51,18 @@ public class CacheStorage implements Storage {
     }
 
     @Override
-    public CompletableFuture<List<Market>> getMarkets(int offset, int limit) {
-        return getMarkets(offset, limit, "");
+    public CompletableFuture<PricedMarket> getPricedMarket(int marketID) {
+        return storage.getPricedMarket(marketID);
     }
 
     @Override
-    public CompletableFuture<List<Listing>> getPlayerListings(UUID uuid, int offset, int limit) {
-        return storage.getPlayerListings(uuid, offset, limit);
+    public CompletableFuture<List<PricedMarket>> getMarkets(int offset) {
+        return getMarkets(offset, "");
+    }
+
+    @Override
+    public CompletableFuture<List<Listing>> getPlayerListings(UUID uuid, int serverID, int offset) {
+        return storage.getPlayerListings(uuid, serverID, offset);
     }
 
     @Override
@@ -68,22 +76,22 @@ public class CacheStorage implements Storage {
     }
 
     @Override
-    public CompletableFuture<List<Market>> getMarkets(int offset, int limit, String search) {
+    public CompletableFuture<List<PricedMarket>> getMarkets(int offset, String search) {
         long currentTime = System.currentTimeMillis();
-        if (lastCheckedAge + 30000 < currentTime) {
-            lastCheckedAge = System.currentTimeMillis();
+        if (getMarketsLastChecked + 30000 < currentTime) {
+            getMarketsLastChecked = System.currentTimeMillis();
             List<MarketArgs> outdated = new ArrayList<>();
-            for (MarketArgs key : lruCache.keySet()) {
+            for (MarketArgs key : marketsCache.keySet()) {
                 if (key.timestamp() + 60000 < currentTime) {
                     outdated.add(key);
                 }
             }
             for (MarketArgs outdatedArgs : outdated) {
-                lruCache.remove(outdatedArgs);
+                marketsCache.remove(outdatedArgs);
             }
         }
-        MarketArgs args = new MarketArgs(offset, limit, search, currentTime);
-        return lruCache.computeIfAbsent(args, (marketArgs) -> storage.getMarkets(marketArgs.offset(), marketArgs.limit(), marketArgs.search()));
+        MarketArgs args = new MarketArgs(offset, search, currentTime);
+        return marketsCache.computeIfAbsent(args, (marketArgs) -> storage.getMarkets(marketArgs.offset(), marketArgs.search()));
     }
 
     @Override
@@ -91,11 +99,26 @@ public class CacheStorage implements Storage {
         return storage.claimPayment(uuid);
     }
 
-    private static record MarketArgs(int offset, int limit, String search, long timestamp) {
+    @Override
+    public void setUsername(UUID uuid, String name) {
+        storage.setUsername(uuid, name);
+    }
+
+    @Override
+    public CompletableFuture<String> getUsername(UUID uuid) {
+        return usernames.computeIfAbsent(uuid, storage::getUsername);
+    }
+
+    @Override
+    public CompletableFuture<UUID> getUUID(String username) {
+        return uuids.computeIfAbsent(username, storage::getUUID);
+    }
+
+    private record MarketArgs(int offset, String search, long timestamp) {
         @Override
         public boolean equals(Object obj) {
             if (obj instanceof MarketArgs other) {
-                return this.limit == other.limit && this.offset == other.offset && this.search.equals(other.search);
+                return this.offset == other.offset && this.search.equals(other.search);
             }
             return false;
         }
@@ -104,7 +127,6 @@ public class CacheStorage implements Storage {
         public int hashCode() {
             int hash = 17;
             hash = hash * 31 + Integer.hashCode(offset);
-            hash = hash * 31 + Integer.hashCode(limit);
             return hash * 31 + search.hashCode();
         }
     }

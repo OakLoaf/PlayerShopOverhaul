@@ -16,6 +16,8 @@ commands:
 depend:
   - UserInterface
   - Vault
+softdepend:
+  - PlaceholderAPI
 permissions:
   playershopoverhaul.pso.reload:
     description: Allows you to reload PlayerShopOverhaul

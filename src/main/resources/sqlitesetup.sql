@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS markets
+CREATE TABLE IF NOT EXISTS pricedMarkets
 (
     id INTEGER NOT NULL PRIMARY KEY AUTOINCREMENT,
     item MEDIUMBLOB NOT NULL UNIQUE,
@@ -12,7 +12,7 @@ CREATE TABLE IF NOT EXISTS listings
     serverID INT NOT NULL,
     stock INT NOT NULL,
     pricePer DOUBLE NOT NULL,
-    marketID INTEGER NOT NULL REFERENCES markets(id),
+    marketID INTEGER NOT NULL REFERENCES pricedMarkets(id),
     CHECK (stock > 0 AND pricePer > 0)
 );
 |
@@ -32,5 +32,11 @@ CREATE TABLE IF NOT EXISTS log
     buyerID BINARY(128) NOT NULL,
     amountPurchased INT NOT NULL,
     amountPaid DOUBLE NOT NULL,
-    marketID INTEGER NOT NULL REFERENCES markets(id)
+    marketID INTEGER NOT NULL REFERENCES pricedMarkets(id)
+);
+|
+CREATE TABLE IF NOT EXISTS nameToUUID
+(
+    sellerID BINARY(16) PRIMARY KEY,
+    username CHAR(17)
 );

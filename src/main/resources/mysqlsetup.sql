@@ -34,3 +34,9 @@ CREATE TABLE IF NOT EXISTS log
     amountPaid DOUBLE NOT NULL,
     marketID INTEGER REFERENCES markets(id)
 );
+|
+CREATE TABLE IF NOT EXISTS nameToUUID
+(
+    sellerID BINARY(16) PRIMARY KEY,
+    username CHAR(17) UNIQUE
+);

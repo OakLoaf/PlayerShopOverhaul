@@ -1,6 +1,7 @@
 package me.xemor.playershopoverhaul.storage;
 
 import me.xemor.playershopoverhaul.Listing;
+import me.xemor.playershopoverhaul.PricedMarket;
 import me.xemor.playershopoverhaul.Market;
 import net.milkbowl.vault.economy.EconomyResponse;
 import org.bukkit.inventory.ItemStack;
@@ -16,12 +17,16 @@ public interface Storage {
     CompletableFuture<Object> removeListing(int listingID);
     CompletableFuture<Listing> getListing(int listingID);
     CompletableFuture<Market> getMarket(int marketID);
-    CompletableFuture<List<Market>> getMarkets(int offset, int limit);
-    CompletableFuture<List<Listing>> getPlayerListings(UUID uuid, int offset, int limit);
+    CompletableFuture<PricedMarket> getPricedMarket(int marketID);
+    CompletableFuture<List<PricedMarket>> getMarkets(int offset);
+    CompletableFuture<List<Listing>> getPlayerListings(UUID uuid, int serverID, int offset);
     CompletableFuture<List<Market>> getMarkets(List<Listing> listings);
     CompletableFuture<EconomyResponse> purchaseFromMarket(UUID uuid, Market market, int amount);
-    CompletableFuture<List<Market>> getMarkets(int offset, int limits, String search);
+    CompletableFuture<List<PricedMarket>> getMarkets(int offset, String search);
     CompletableFuture<Double> claimPayment(UUID uuid);
+    void setUsername(UUID uuid, String name);
+    CompletableFuture<String> getUsername(UUID uuid);
+    CompletableFuture<UUID> getUUID(String username);
 
 
 }

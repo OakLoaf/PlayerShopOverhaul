@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "me.xemor"
-version = "1.0.1"
+version = "1.1.0"
 
 repositories {
     mavenCentral()
@@ -14,6 +14,7 @@ repositories {
     maven { url = uri("https://oss.sonatype.org/content/groups/public/") }
     maven { url = uri("https://jitpack.io/") }
     maven { url = uri("https://repo.minebench.de/") }
+    maven { url = uri("https://repo.extendedclip.com/content/repositories/placeholderapi/") }
 }
 
 dependencies {
@@ -21,6 +22,7 @@ dependencies {
     compileOnly("me.xemor:UserInterface:1.5.1-SNAPSHOT")
     compileOnly("com.github.MilkBowl:VaultAPI:1.7")
     compileOnly("org.jetbrains:annotations:23.0.0")
+    compileOnly("me.clip:placeholderapi:2.11.2")
     shadow("net.kyori:adventure-text-minimessage:4.11.0")
     shadow("net.kyori:adventure-platform-bukkit:4.1.1")
     shadow("mysql:mysql-connector-java:8.0.29")

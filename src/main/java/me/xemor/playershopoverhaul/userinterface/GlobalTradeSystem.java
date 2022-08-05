@@ -1,19 +1,13 @@
 package me.xemor.playershopoverhaul.userinterface;
 
-import me.xemor.playershopoverhaul.ConfigHandler;
-import me.xemor.playershopoverhaul.Listing;
-import me.xemor.playershopoverhaul.Market;
-import me.xemor.playershopoverhaul.PlayerShopOverhaul;
+import me.xemor.playershopoverhaul.*;
 import me.xemor.playershopoverhaul.storage.CacheStorage;
 import me.xemor.playershopoverhaul.storage.SQLStorage;
 import me.xemor.playershopoverhaul.storage.SQLiteStorage;
 import me.xemor.playershopoverhaul.storage.Storage;
 import me.xemor.userinterface.ChestInterface;
 import me.xemor.userinterface.TextInterface;
-import org.bukkit.Bukkit;
-import org.bukkit.ChatColor;
-import org.bukkit.Material;
-import org.bukkit.NamespacedKey;
+import org.bukkit.*;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Listener;
 import org.bukkit.event.inventory.ClickType;
@@ -23,9 +17,9 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
 
-import javax.xml.stream.events.Namespace;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 public class GlobalTradeSystem implements Listener {
@@ -35,6 +29,7 @@ public class GlobalTradeSystem implements Listener {
     private static NamespacedKey priceKey;
     private final TextInterface textInterface = new TextInterface();
     private final Storage storage;
+    private final static ItemStack air = new ItemStack(Material.AIR);
 
     public GlobalTradeSystem() {
         marketIDKey = new NamespacedKey(PlayerShopOverhaul.getInstance(), "marketID");
@@ -77,7 +72,7 @@ public class GlobalTradeSystem implements Listener {
             if (data.getPageNumber() > 0) data.setPageNumber(data.getPageNumber() - 1);
             updateTradeSystemView(player, chestInterface);
         });
-        chestInterface.getInteractions().addSimpleInteraction(myListings, this::showListings);
+        chestInterface.getInteractions().addSimpleInteraction(myListings, (otherPlayer) -> showListings(otherPlayer, otherPlayer.getUniqueId(), PlayerShopOverhaul.getInstance().getConfigHandler().getServerID()));
         chestInterface.getInteractions().addSimpleInteraction(refresh, this::showTradeSystemView);
         chestInterface.getInteractions().addSimpleInteraction(search, (otherPlayer) -> {
             player.closeInventory();
@@ -103,7 +98,7 @@ public class GlobalTradeSystem implements Listener {
                 (clickPlayer, item, clickType) -> {
                     int marketID = item.getItemMeta().getPersistentDataContainer().get(marketIDKey, PersistentDataType.INTEGER);
                     double cachedGoingPrice = item.getItemMeta().getPersistentDataContainer().get(priceKey, PersistentDataType.DOUBLE);
-                    CompletableFuture<Market> marketFuture = storage.getMarket(marketID);
+                    CompletableFuture<PricedMarket> marketFuture = storage.getPricedMarket(marketID);
                     marketFuture.exceptionally((ignored) -> {
                         Bukkit.getScheduler().runTask(PlayerShopOverhaul.getInstance(), () -> clickPlayer.sendMessage(ChatColor.RED + "There is insufficient stock!"));
                         return null;
@@ -165,35 +160,40 @@ public class GlobalTradeSystem implements Listener {
         String search = data.getCurrentSearch();
         int page = data.getPageNumber();
         int offset = 21 * page;
-        int limit = 21 * (page + 1);
-        CompletableFuture<List<Market>> marketsFuture = storage.getMarkets(offset, limit, search);
+        CompletableFuture<List<PricedMarket>> marketsFuture = storage.getMarkets(offset, search);
         marketsFuture.thenAccept((markets) -> {
             new BukkitRunnable() {
                 @Override
                 public void run() {
-                    for (int i = 0; i < 21; i++) {
-                        ItemStack item;
-                        if (offset + i < markets.size()) {
-                            Market market = markets.get(i);
-                            item = market.getMarketRepresentation();
+                    assert markets.size() <= 21;
+                    for (int i = 0; i < 21; i++) { //markets.size() should be 21 in all circumstances as a page has 21 items on it
+                        int index = i + 10 + (i / 7) * 2;
+                        if (i < markets.size()) {
+                            PricedMarket pricedMarket = markets.get(i);
+                            PricedMarket.MarketRepresentation representation = pricedMarket.getMarketRepresentation();
+                            inventory.setItem(index, representation.instant());
+                            representation.finished().thenAccept((finished) -> {
+                                Bukkit.getScheduler().runTask(PlayerShopOverhaul.getInstance(), () -> {
+                                    inventory.setItem(index, finished);
+                                });
+                            });
                         }
                         else {
-                            item = new ItemStack(Material.AIR);
+                            inventory.setItem(index, air);
                         }
-                        inventory.setItem(i + 10 + (i / 7) * 2, item);
                     }
                 }
             }.runTask(PlayerShopOverhaul.getInstance());
         });
     }
 
-    public void showListings(Player player) {
+    public void showListings(Player player, UUID userToShow, int serverID) {
         ChestInterface<GTSData> chestInterface = new ChestInterface<>("Your Listings", 5, new GTSData("", 0));
-        updateListingsView(player, chestInterface);
+        updateListingsView(userToShow, serverID, chestInterface);
         player.openInventory(chestInterface.getInventory());
     }
 
-    private void updateListingsView(Player player, ChestInterface<GTSData> chestInterface) {
+    private void updateListingsView(UUID dataUUID, int serverID, ChestInterface<GTSData> chestInterface) {
         ItemStack forwardArrow = PlayerShopOverhaul.getInstance().getConfigHandler().getForwardArrow();
         ItemStack backArrow = PlayerShopOverhaul.getInstance().getConfigHandler().getBackArrow();
         ItemStack backButton = PlayerShopOverhaul.getInstance().getConfigHandler().getMenuBackButton();
@@ -221,31 +221,32 @@ public class GlobalTradeSystem implements Listener {
                     });
                 });
         //chestInterface.getInteractions().addCloseInteraction(this::showTradeSystemView);
-        displayListingsViewItems(player, chestInterface);
+        displayListingsViewItems(dataUUID, serverID, chestInterface);
     }
 
-    private void displayListingsViewItems(Player player, ChestInterface<GTSData> chestInterface) {
+    private void displayListingsViewItems(UUID dataUUID, int serverID, ChestInterface<GTSData> chestInterface) {
         GTSData data = chestInterface.getInteractions().getData();
-        CompletableFuture<List<Listing>> listingsFuture = storage.getPlayerListings(player.getUniqueId(), 21 * data.getPageNumber(), 21 * (data.getPageNumber() + 1));
+        CompletableFuture<List<Listing>> listingsFuture = storage.getPlayerListings(dataUUID, serverID, 21 * data.getPageNumber());
         listingsFuture.thenAccept((listings) -> {
             storage.getMarkets(listings).thenAccept((markets) -> {
                 new BukkitRunnable() {
                     @Override
                     public void run() {
                         Inventory inventory = chestInterface.getInventory();
-                        for (int i = 0; i < 21 && i < markets.size(); i++) {
+                        for (int i = 0; i < 21; i++) {
                             ItemStack item;
+                            int index = i + 10 + (i / 7) * 2;
                             if (i < listings.size()) {
                                 item = markets.get(i).getItem();
                                 ItemMeta meta = item.getItemMeta();
                                 meta.getPersistentDataContainer().set(listingsIDKey, PersistentDataType.INTEGER, listings.get(i).getID());
                                 item.setItemMeta(meta);
+                                item.setAmount(listings.get(i).getStock());
+                                inventory.setItem(index, item);
                             }
                             else {
-                                item = new ItemStack(Material.AIR);
+                                inventory.setItem(index, air);
                             }
-                            item.setAmount(listings.get(i).getStock());
-                            inventory.setItem(i + 10 + (i / 7) * 2, item);
                         }
                     }
                 }.runTask(PlayerShopOverhaul.getInstance());

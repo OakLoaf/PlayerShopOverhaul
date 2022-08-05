@@ -8,19 +8,24 @@ import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Bukkit;
 import org.bukkit.command.*;
 import org.bukkit.entity.Player;
+import org.bukkit.event.EventHandler;
+import org.bukkit.event.Listener;
+import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
 import java.util.List;
 
-public final class PlayerShopOverhaul extends JavaPlugin {
+public final class PlayerShopOverhaul extends JavaPlugin implements Listener {
 
     private static PlayerShopOverhaul playerShopOverhaul;
     private ConfigHandler configHandler;
     private GlobalTradeSystem globalTradeSystem;
     private BukkitAudiences bukkitAudiences;
     private Economy econ;
+    private boolean hasPlaceholderAPI = false;
     private boolean isCommandRegistered = true;
+    private OfflinePlayerCache offlinePlayerCache = new OfflinePlayerCache();
 
     @Override
     public void onEnable() {
@@ -35,6 +40,13 @@ public final class PlayerShopOverhaul extends JavaPlugin {
         pso.setTabCompleter(psoCommand);
         pso.setExecutor(psoCommand);
         if (!setupEconomy()) this.getLogger().severe("Failed to setup economy plugin");
+        if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) hasPlaceholderAPI = true;
+        this.getServer().getPluginManager().registerEvents(this, this);
+    }
+
+    @EventHandler
+    public void onPlayerJoin(PlayerJoinEvent e) {
+        globalTradeSystem.getStorage().setUsername(e.getPlayer().getUniqueId(), e.getPlayer().getName());
     }
 
     public void registerCommand() {
@@ -56,7 +68,7 @@ public final class PlayerShopOverhaul extends JavaPlugin {
     }
 
     public void reload() {
-        configHandler = new ConfigHandler();
+        configHandler.reloadConfig();
         globalTradeSystem = new GlobalTradeSystem();
     }
 
@@ -75,6 +87,10 @@ public final class PlayerShopOverhaul extends JavaPlugin {
         }
         econ = rsp.getProvider();
         return true;
+    }
+
+    public boolean hasPlaceholderAPI() {
+        return hasPlaceholderAPI;
     }
 
     public boolean isCommandRegistered() {
@@ -99,5 +115,7 @@ public final class PlayerShopOverhaul extends JavaPlugin {
         return playerShopOverhaul;
     }
 
-
+    public OfflinePlayerCache getOfflinePlayerCache() {
+        return offlinePlayerCache;
+    }
 }
