@@ -11,10 +11,7 @@ import org.jetbrains.annotations.Nullable;
 import java.util.Collections;
 import java.util.Map;
 import java.util.UUID;
-import java.util.concurrent.ArrayBlockingQueue;
-import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.LinkedBlockingQueue;
 
 public class OfflinePlayerCache {
 
@@ -44,9 +41,11 @@ public class OfflinePlayerCache {
     public static class FastOfflinePlayer implements OfflinePlayer {
 
         private final UUID uuid;
+        private final String name;
 
         public FastOfflinePlayer(UUID uuid, String name) {
             this.uuid = uuid;
+            this.name = name;
         }
 
         @Override
@@ -57,7 +56,7 @@ public class OfflinePlayerCache {
         @Nullable
         @Override
         public String getName() {
-            return null;
+            return name;
         }
 
         @NotNull

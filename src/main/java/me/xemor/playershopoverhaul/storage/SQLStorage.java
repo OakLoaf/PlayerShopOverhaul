@@ -256,7 +256,8 @@ public class SQLStorage implements Storage {
                     LIMIT 21 OFFSET ?
                     """
             )) {
-                stmt.setString(1, "%" + search + "%");
+                String lowerSearch = search.toLowerCase();
+                stmt.setString(1, "%" + lowerSearch + "%");
                 stmt.setInt(2, offset);
                 ResultSet resultSet = stmt.executeQuery();
                 List<PricedMarket> pricedMarkets = new ArrayList<>();

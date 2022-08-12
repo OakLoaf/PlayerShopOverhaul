@@ -77,6 +77,7 @@ public class CacheStorage implements Storage {
 
     @Override
     public CompletableFuture<List<PricedMarket>> getMarkets(int offset, String search) {
+        search = search.toLowerCase();
         long currentTime = System.currentTimeMillis();
         if (getMarketsLastChecked + 30000 < currentTime) {
             getMarketsLastChecked = System.currentTimeMillis();

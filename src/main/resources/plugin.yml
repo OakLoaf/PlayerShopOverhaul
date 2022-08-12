@@ -8,7 +8,7 @@ commands:
   gts:
     usage: /gts
     description: Opens the global trade system
-    aliases: ["globaltradesystem", "ah"]
+    aliases: ["globaltradesystem", "auctionhouse"]
   pso:
     usage: /pso
     description: The admin commands of PlayerShopOverhaul
