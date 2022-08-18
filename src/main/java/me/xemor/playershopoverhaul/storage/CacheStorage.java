@@ -77,7 +77,7 @@ public class CacheStorage implements Storage {
 
     @Override
     public CompletableFuture<List<PricedMarket>> getMarkets(int offset, String search) {
-        search = search.toLowerCase();
+        String finalSearch = search.toLowerCase();
         long currentTime = System.currentTimeMillis();
         if (getMarketsLastChecked + 30000 < currentTime) {
             getMarketsLastChecked = System.currentTimeMillis();
@@ -91,8 +91,8 @@ public class CacheStorage implements Storage {
                 marketsCache.remove(outdatedArgs);
             }
         }
-        MarketArgs args = new MarketArgs(offset, search, currentTime);
-        return marketsCache.computeIfAbsent(args, (marketArgs) -> storage.getMarkets(marketArgs.offset(), marketArgs.search()));
+        MarketArgs args = new MarketArgs(offset, finalSearch, currentTime);
+        return marketsCache.computeIfAbsent(args, (marketArgs) -> storage.getMarkets(marketArgs.offset(), finalSearch));
     }
 
     @Override
@@ -119,7 +119,7 @@ public class CacheStorage implements Storage {
         @Override
         public boolean equals(Object obj) {
             if (obj instanceof MarketArgs other) {
-                return this.offset == other.offset && this.search.equals(other.search);
+                return this.offset == other.offset && this.search.equalsIgnoreCase(other.search);
             }
             return false;
         }
@@ -128,7 +128,7 @@ public class CacheStorage implements Storage {
         public int hashCode() {
             int hash = 17;
             hash = hash * 31 + Integer.hashCode(offset);
-            return hash * 31 + search.hashCode();
+            return hash * 31 + search.toUpperCase().hashCode();
         }
     }
 
