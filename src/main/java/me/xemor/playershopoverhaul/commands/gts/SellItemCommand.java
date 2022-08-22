@@ -1,5 +1,6 @@
 package me.xemor.playershopoverhaul.commands.gts;
 
+import me.xemor.playershopoverhaul.ConfigHandler;
 import me.xemor.playershopoverhaul.commands.SubCommand;
 import me.xemor.playershopoverhaul.userinterface.GlobalTradeSystem;
 import me.xemor.playershopoverhaul.PlayerShopOverhaul;
@@ -21,6 +22,8 @@ public class SellItemCommand implements SubCommand {
                 ItemStack itemInMainHand = player.getInventory().getItemInMainHand();
                 if (itemInMainHand.getType() != Material.AIR) {
                     double pricePer = Double.parseDouble(args[1]) / itemInMainHand.getAmount();
+                    PlayerShopOverhaul.getInstance().getBukkitAudiences().sender(sender)
+                            .sendMessage(PlayerShopOverhaul.getInstance().getConfigHandler().getSoldMessage(pricePer));
                     PlayerShopOverhaul.getInstance().getGlobalTradeSystem().getStorage().registerListing(player.getUniqueId(), itemInMainHand, itemInMainHand.getAmount(), pricePer);
                     itemInMainHand.setAmount(0);
                 }

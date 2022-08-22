@@ -24,6 +24,7 @@ public class ConfigHandler {
     private String databaseUsername;
     private String databasePassword;
     private Component helpMessage;
+    private String soldMessage;
     private String claimedMessage;
     private String listingName;
     private List<String> listingLore;
@@ -62,6 +63,7 @@ public class ConfigHandler {
         this.listings = new ItemStackData(language.getConfigurationSection("GUI.listings")).getItem();
         this.menuBackButton = new ItemStackData(language.getConfigurationSection("GUI.menuBackButton")).getItem();
         this.search = new ItemStackData(language.getConfigurationSection("GUI.search")).getItem();
+        this.soldMessage = language.getString("sell.soldmessage", "<gray>You have sold your items for <priceper> each!");
     }
 
     public String getDatabaseType() {
@@ -103,6 +105,10 @@ public class ConfigHandler {
 
     public ItemStack getForwardArrow() {
         return forwardArrow;
+    }
+
+    public Component getSoldMessage(double pricePer) {
+        return MiniMessage.miniMessage().deserialize(soldMessage, Placeholder.unparsed("priceper", String.valueOf(pricePer)));
     }
 
     public ItemStack getBackArrow() {

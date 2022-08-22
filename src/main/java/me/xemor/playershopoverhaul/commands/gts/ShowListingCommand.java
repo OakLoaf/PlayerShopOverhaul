@@ -17,7 +17,6 @@ public class ShowListingCommand implements SubCommand {
     public ShowListingCommand() {
 
     }
-
     @Override
     public void onCommand(CommandSender sender, String[] args) {
         if (sender instanceof Player player && sender.hasPermission("playershopoverhaul.gts.show")) {

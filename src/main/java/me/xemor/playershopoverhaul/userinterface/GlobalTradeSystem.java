@@ -17,6 +17,7 @@ import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 import org.bukkit.scheduler.BukkitRunnable;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -112,7 +113,10 @@ public class GlobalTradeSystem implements Listener {
                             if (clickType == ClickType.LEFT) {
                                 storage.purchaseFromMarket(clickPlayer.getUniqueId(), market, 1).thenAccept((response) -> {
                                     if (response.transactionSuccess()) {
-                                        clickPlayer.getInventory().addItem(market.getItem().clone());
+                                        HashMap<Integer, ItemStack> items = clickPlayer.getInventory().addItem(market.getItem().clone());
+                                        for (ItemStack leftover : items.values()) {
+                                            clickPlayer.getLocation().getWorld().dropItem(clickPlayer.getLocation(), leftover);
+                                        }
                                         Bukkit.getScheduler().runTask(PlayerShopOverhaul.getInstance(), () -> clickPlayer.sendMessage(ChatColor.GREEN + String.format("It was bought successfully for %.2f! You now have %.2f.", response.amount, response.balance)));
                                     }
                                     else {
@@ -124,11 +128,14 @@ public class GlobalTradeSystem implements Listener {
                                 }));
                             }
                             else if (clickType == ClickType.SHIFT_LEFT) {
-                                storage.purchaseFromMarket(clickPlayer.getUniqueId(), market, 64).thenAccept((response) -> {
+                                storage.purchaseFromMarket(clickPlayer.getUniqueId(), market, item.getType().getMaxStackSize()).thenAccept((response) -> {
                                     ItemStack toGive = market.getItem().clone();
-                                    toGive.setAmount(64);
+                                    toGive.setAmount(item.getType().getMaxStackSize());
                                     if (response.transactionSuccess()) {
-                                        clickPlayer.getInventory().addItem(toGive);
+                                        HashMap<Integer, ItemStack> items = clickPlayer.getInventory().addItem(toGive);
+                                        for (ItemStack leftover : items.values()) {
+                                            clickPlayer.getLocation().getWorld().dropItem(clickPlayer.getLocation(), leftover);
+                                        }
                                         Bukkit.getScheduler().runTask(PlayerShopOverhaul.getInstance(), () -> clickPlayer.sendMessage(ChatColor.GREEN + String.format("You have bought 64 successfully for %.2f! You now have %.2f.", response.amount, response.balance)));
                                     }
                                     else {
@@ -197,6 +204,15 @@ public class GlobalTradeSystem implements Listener {
         ItemStack forwardArrow = PlayerShopOverhaul.getInstance().getConfigHandler().getForwardArrow();
         ItemStack backArrow = PlayerShopOverhaul.getInstance().getConfigHandler().getBackArrow();
         ItemStack backButton = PlayerShopOverhaul.getInstance().getConfigHandler().getMenuBackButton();
+        GTSData data = chestInterface.getInteractions().getData();
+        chestInterface.getInteractions().addSimpleInteraction(forwardArrow, (otherPlayer) -> {
+            if (chestInterface.getInventory().getItem(10) != null) data.setPageNumber(data.getPageNumber() + 1);
+            displayListingsViewItems(dataUUID, serverID, chestInterface);
+        });
+        chestInterface.getInteractions().addSimpleInteraction(backArrow, (otherPlayer) -> {
+            if (data.getPageNumber() > 0) data.setPageNumber(data.getPageNumber() - 1);
+            displayListingsViewItems(dataUUID, serverID, chestInterface);
+        });
         chestInterface.calculateInventoryContents(new String[] {
                         "    R    ",
                         "         ",
@@ -216,7 +232,10 @@ public class GlobalTradeSystem implements Listener {
                     item.setItemMeta(itemMeta);
                     CompletableFuture<Object> future = storage.removeListing(id);
                     future.thenAccept((ignored) -> {
-                       clickPlayer.getInventory().addItem(item);
+                       HashMap<Integer, ItemStack> items = clickPlayer.getInventory().addItem(item);
+                       for (ItemStack leftover : items.values()) {
+                           clickPlayer.getLocation().getWorld().dropItem(clickPlayer.getLocation(), leftover);
+                       }
                        inventory.remove(item);
                     });
                 });

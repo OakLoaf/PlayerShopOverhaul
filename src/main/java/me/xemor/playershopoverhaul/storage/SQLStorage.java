@@ -116,12 +116,17 @@ public class SQLStorage implements Storage {
     public CompletableFuture<Object> removeListing(int listingID) {
         CompletableFuture<Object> completableFuture = new CompletableFuture<>();
         threads.submit(() -> {
-            try (Connection conn = source.getConnection(); PreparedStatement stmt = conn.prepareStatement(
-                    "DELETE FROM listings WHERE id = ?"
-            )) {
+            try (Connection conn = source.getConnection()) {
+                conn.setAutoCommit(false);
+                conn.createStatement().execute("START TRANSACTION");
+                PreparedStatement stmt = conn.prepareStatement(
+                        "DELETE FROM listings WHERE id = ?"
+                );
                 stmt.setInt(1, listingID);
                 stmt.execute();
+                conn.createStatement().execute("COMMIT");
                 completableFuture.complete(true);
+
             } catch (SQLException e) {
                 e.printStackTrace();
             }
@@ -373,7 +378,7 @@ public class SQLStorage implements Storage {
                 stmt.setString(1, username);
                 ResultSet resultSet = stmt.executeQuery();
                 resultSet.next();
-                future.complete(UUID.fromString(resultSet.getString("sellerID")));
+                future.complete(fromUUIDBinary(resultSet.getBytes("sellerID")));
             } catch (Exception e) {
                 e.printStackTrace();
                 future.completeExceptionally(e);
@@ -482,6 +487,8 @@ public class SQLStorage implements Storage {
         CompletableFuture<EconomyResponse> completableFuture = new CompletableFuture<>();
         threads.submit(() -> {
             try (Connection conn = source.getConnection()) {
+                conn.setAutoCommit(false);
+                conn.createStatement().execute("START TRANSACTION;");
                 PreparedStatement stmt = conn.prepareStatement(
                         """
                         SELECT listings.id AS lid, sellerID, serverID, stock, pricePer FROM listings
@@ -489,6 +496,7 @@ public class SQLStorage implements Storage {
                         WHERE markets.id = ?
                         ORDER BY listings.pricePer ASC
                         LIMIT ?
+                        FOR UPDATE;
                         """
                 );
                 stmt.setInt(1, market.getID());
@@ -535,11 +543,9 @@ public class SQLStorage implements Storage {
                 for (Integer integer : forRemoval) {
                     joiner.add(String.valueOf(integer));
                 }
-                String rawStmt = String.format("DELETE FROM listings WHERE id IN (%s);", joiner);
-                stmt = conn.prepareStatement(
-                        rawStmt
-                );
-                stmt.execute();
+                stmt.execute(String.format("""
+                DELETE FROM listings WHERE id IN (%s);
+                """, joiner));
                 if (listingForReinsertion != null) {
                     PreparedStatement insert = conn.prepareStatement("INSERT INTO listings (sellerID, serverID, stock, pricePer, marketID) VALUES(?, ?, ?, ?, ?);");
                     insert.setBytes(1, getUUIDBinary(listingForReinsertion.getSellerID()));
@@ -550,6 +556,7 @@ public class SQLStorage implements Storage {
                     insert.execute();
                 }
                 completableFuture.complete(transaction);
+                stmt.execute("COMMIT;");
             } catch (Exception e) {
                 completableFuture.completeExceptionally(e);
                 e.printStackTrace();

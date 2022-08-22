@@ -6,6 +6,8 @@ help:
   - "<gray>/gts sell <price>"
   - "<gray>/gts show"
   - "<gray>/gts claim"
+sell:
+  soldmessage: "<gray>You have sold your items for <priceper> each!"
 claim:
   claimed: "<gray>You claimed <money> dollars!"
 listing:
