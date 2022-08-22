@@ -231,12 +231,12 @@ public class GlobalTradeSystem implements Listener {
                     itemMeta.getPersistentDataContainer().remove(listingsIDKey);
                     item.setItemMeta(itemMeta);
                     CompletableFuture<Object> future = storage.removeListing(id);
+                    inventory.remove(item);
                     future.thenAccept((ignored) -> {
                        HashMap<Integer, ItemStack> items = clickPlayer.getInventory().addItem(item);
                        for (ItemStack leftover : items.values()) {
                            clickPlayer.getLocation().getWorld().dropItem(clickPlayer.getLocation(), leftover);
                        }
-                       inventory.remove(item);
                     });
                 });
         //chestInterface.getInteractions().addCloseInteraction(this::showTradeSystemView);

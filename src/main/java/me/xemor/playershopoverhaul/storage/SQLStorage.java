@@ -123,10 +123,11 @@ public class SQLStorage implements Storage {
                         "DELETE FROM listings WHERE id = ?"
                 );
                 stmt.setInt(1, listingID);
-                stmt.execute();
+                int value = stmt.executeUpdate();
                 conn.createStatement().execute("COMMIT");
-                completableFuture.complete(true);
-
+                if (value > 0) {
+                    completableFuture.complete(true);
+                }
             } catch (SQLException e) {
                 e.printStackTrace();
             }
