@@ -1,14 +1,17 @@
 package me.xemor.playershopoverhaul;
 
+import com.destroystokyo.paper.profile.PlayerProfile;
 import com.mysql.cj.util.LRUCache;
 import org.bukkit.*;
 import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
-import org.bukkit.profile.PlayerProfile;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.Collections;
+import java.util.Date;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -53,6 +56,11 @@ public class OfflinePlayerCache {
             return Bukkit.getPlayer(uuid) != null;
         }
 
+        @Override
+        public boolean isConnected() {
+            return false;
+        }
+
         @Nullable
         @Override
         public String getName() {
@@ -65,15 +73,29 @@ public class OfflinePlayerCache {
             return uuid;
         }
 
-        @NotNull
         @Override
-        public PlayerProfile getPlayerProfile() {
-            return null; //shouldn't be needed by placeholders
+        public @NotNull PlayerProfile getPlayerProfile() {
+            return null;
         }
 
         @Override
         public boolean isBanned() {
             return false; //probs not needed in a shop plugin
+        }
+
+        @Override
+        public <E extends BanEntry<? super PlayerProfile>> @Nullable E ban(@Nullable String s, @Nullable Date date, @Nullable String s1) {
+            return null;
+        }
+
+        @Override
+        public <E extends BanEntry<? super PlayerProfile>> @Nullable E ban(@Nullable String s, @Nullable Instant instant, @Nullable String s1) {
+            return null;
+        }
+
+        @Override
+        public <E extends BanEntry<? super PlayerProfile>> @Nullable E ban(@Nullable String s, @Nullable Duration duration, @Nullable String s1) {
+            return null;
         }
 
         @Override
@@ -109,6 +131,16 @@ public class OfflinePlayerCache {
         @Override
         public Location getBedSpawnLocation() {
             return null; //not needed for most placeholders
+        }
+
+        @Override
+        public long getLastLogin() {
+            return 0;
+        }
+
+        @Override
+        public long getLastSeen() {
+            return 0;
         }
 
         @Override

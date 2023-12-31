@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "me.xemor"
-version = "1.3.3"
+version = "1.3.4"
 
 repositories {
     mavenCentral()
@@ -15,11 +15,12 @@ repositories {
     maven { url = uri("https://jitpack.io/") }
     maven { url = uri("https://repo.minebench.de/") }
     maven { url = uri("https://repo.extendedclip.com/content/repositories/placeholderapi/") }
+    maven("https://repo.papermc.io/repository/maven-public/")
 }
 
 dependencies {
-    compileOnly("org.spigotmc:spigot-api:1.19-R0.1-SNAPSHOT")
-    compileOnly("me.xemor:UserInterface:1.5.1-SNAPSHOT")
+    compileOnly("io.papermc.paper:paper-api:1.20.2-R0.1-SNAPSHOT")
+    compileOnly("me.xemor:UserInterface:1.6.6-SNAPSHOT")
     compileOnly("com.github.MilkBowl:VaultAPI:1.7")
     compileOnly("org.jetbrains:annotations:23.0.0")
     compileOnly("me.clip:placeholderapi:2.11.2")
@@ -28,7 +29,7 @@ dependencies {
     shadow("mysql:mysql-connector-java:8.0.29")
     shadow("com.zaxxer:HikariCP:5.0.1")
     shadow("org.xerial:sqlite-jdbc:3.36.0.3")
-    shadow("me.xemor:configurationdata:1.18.0-SNAPSHOT")
+    shadow("me.xemor:configurationdata:2.0.0-SNAPSHOT")
 }
 
 java {

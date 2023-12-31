@@ -128,6 +128,9 @@ public class SQLStorage implements Storage {
                 if (value > 0) {
                     completableFuture.complete(true);
                 }
+                else {
+                    completableFuture.completeExceptionally(new IllegalStateException("This item no longer exists!"));
+                }
             } catch (SQLException e) {
                 e.printStackTrace();
             }
@@ -253,9 +256,14 @@ public class SQLStorage implements Storage {
         threads.submit(() -> {
             try (Connection conn = source.getConnection(); PreparedStatement stmt = conn.prepareStatement(
                     """
-                    SELECT id, item, prices.price AS price, prices.stock AS stock, prices.sellerID AS uuid
+                    SELECT id, item, prices.stock AS stock, prices.price AS price, prices.seller AS sellerID
                     FROM markets
-                    JOIN (SELECT sellerID, min(pricePer) AS price, sum(stock) AS stock, marketID FROM listings GROUP BY marketID) AS prices
+                    JOIN (
+                    SELECT marketID, min(pricePer) AS price, sum(stock) AS stock, 
+                    FIRST_VALUE(listings.sellerID) over (PARTITION BY marketID ORDER BY pricePer) AS seller
+                    FROM listings
+                    GROUP BY marketID
+                    ) AS prices
                     ON prices.marketID = markets.id
                     WHERE name LIKE ?
                     ORDER BY stock DESC
@@ -272,7 +280,7 @@ public class SQLStorage implements Storage {
                     byte[] itemBytes = resultSet.getBytes("item");
                     double pricePer = resultSet.getDouble("price");
                     int stock = resultSet.getInt("stock");
-                    UUID uuid = fromUUIDBinary(resultSet.getBytes("uuid"));
+                    UUID uuid = fromUUIDBinary(resultSet.getBytes("sellerID"));
                     ItemStack itemStack = ItemSerialization.binaryToItemStack(itemBytes);
                     pricedMarkets.add(new PricedMarket(id, itemStack, pricePer, uuid, stock));
                 }
@@ -529,6 +537,7 @@ public class SQLStorage implements Storage {
                 }
                 if (stockSum < amount) {
                     completableFuture.completeExceptionally(new IllegalStateException("There were not enough items on the market!"));
+                    stmt.execute("COMMIT;");
                     return;
                 }
                 Economy economy = PlayerShopOverhaul.getInstance().getEconomy();

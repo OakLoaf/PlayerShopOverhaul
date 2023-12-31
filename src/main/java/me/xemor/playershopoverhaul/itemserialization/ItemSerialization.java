@@ -1,38 +1,25 @@
 package me.xemor.playershopoverhaul.itemserialization;
 
+import org.bukkit.Bukkit;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.util.io.BukkitObjectInputStream;
 import org.bukkit.util.io.BukkitObjectOutputStream;
-import org.yaml.snakeyaml.external.biz.base64Coder.Base64Coder;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
+import java.io.*;
+import java.util.Arrays;
 
+/**
+ * Long term this needs to be replaced with a special SerializeyItemStack in order to prevent the version from ever getting serialised
+ * therefore not needing my dodgy workaround
+ */
 public class ItemSerialization {
 
     public static byte[] itemStackToBinary(ItemStack item) {
-        try {
-            ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-            BukkitObjectOutputStream dataOutput = new BukkitObjectOutputStream(byteArrayOutputStream);
-            dataOutput.writeObject(item);
-            dataOutput.close();
-            return byteArrayOutputStream.toByteArray();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        return null;
+        return item.serializeAsBytes();
     }
 
     public static ItemStack binaryToItemStack(byte[] itemData) {
-        ByteArrayInputStream inputStream = new ByteArrayInputStream(itemData);
-        try {
-            BukkitObjectInputStream bukkitObjectInputStream = new BukkitObjectInputStream(inputStream);
-            return (ItemStack) bukkitObjectInputStream.readObject();
-        } catch (IOException | ClassNotFoundException e) {
-            e.printStackTrace();
-        }
-        return null;
+        return ItemStack.deserializeBytes(itemData);
     }
 
 }

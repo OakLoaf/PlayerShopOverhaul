@@ -238,6 +238,10 @@ public class GlobalTradeSystem implements Listener {
                            clickPlayer.getLocation().getWorld().dropItem(clickPlayer.getLocation(), leftover);
                        }
                     });
+                    future.exceptionally((error) -> {
+                        clickPlayer.sendMessage(ChatColor.RED + "This item has already been purchased!");
+                        return null;
+                    });
                 });
         //chestInterface.getInteractions().addCloseInteraction(this::showTradeSystemView);
         displayListingsViewItems(dataUUID, serverID, chestInterface);
