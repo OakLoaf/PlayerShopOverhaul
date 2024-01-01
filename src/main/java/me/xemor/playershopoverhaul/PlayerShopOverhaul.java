@@ -3,6 +3,7 @@ package me.xemor.playershopoverhaul;
 import me.xemor.playershopoverhaul.commands.gts.GTSCommand;
 import me.xemor.playershopoverhaul.commands.pso.PSOCommand;
 import me.xemor.playershopoverhaul.userinterface.GlobalTradeSystem;
+import me.xemor.userinterface.UserInterface;
 import net.kyori.adventure.platform.bukkit.BukkitAudiences;
 import net.milkbowl.vault.economy.Economy;
 import org.bukkit.Bukkit;
@@ -31,6 +32,7 @@ public final class PlayerShopOverhaul extends JavaPlugin implements Listener {
     public void onEnable() {
         // Plugin startup logic
         playerShopOverhaul = this;
+        UserInterface.enable(this);
         configHandler = new ConfigHandler();
         globalTradeSystem = new GlobalTradeSystem();
         bukkitAudiences = BukkitAudiences.create(this);
