@@ -3,7 +3,6 @@ package me.xemor.playershopoverhaul.commands.gts;
 import me.xemor.playershopoverhaul.PlayerShopOverhaul;
 import me.xemor.playershopoverhaul.commands.SubCommand;
 import org.bukkit.Bukkit;
-import org.bukkit.OfflinePlayer;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
 
@@ -20,7 +19,7 @@ public class ShowListingCommand implements SubCommand {
     @Override
     public void onCommand(CommandSender sender, String[] args) {
         if (sender instanceof Player player && sender.hasPermission("playershopoverhaul.gts.show")) {
-            if (!PlayerShopOverhaul.getInstance().isCommandRegistered()) {
+            if (!PlayerShopOverhaul.getInstance().isGtsEnabled()) {
                 sender.sendMessage(PlayerShopOverhaul.getInstance().getConfigHandler().getGtsDisabledMessage());
                 return;
             }

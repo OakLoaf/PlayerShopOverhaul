@@ -22,7 +22,7 @@ public class GTSCommand extends Command {
 
     @Override
     public boolean execute(@NotNull CommandSender sender, @NotNull String commandLabel, @NotNull String[] args) {
-        if (!PlayerShopOverhaul.getInstance().isCommandRegistered()) {
+        if (!PlayerShopOverhaul.getInstance().isGtsEnabled()) {
             sender.sendMessage(PlayerShopOverhaul.getInstance().getConfigHandler().getGtsDisabledMessage());
             return true;
         }

@@ -12,15 +12,15 @@ public class TogglePluginCommand implements SubCommand {
     @Override
     public void onCommand(CommandSender sender, String[] args) {
         if (sender.hasPermission("playershopoverhaul.pso.toggleplugin")) {
-            if (PlayerShopOverhaul.getInstance().isCommandRegistered()) {
+            if (PlayerShopOverhaul.getInstance().isGtsEnabled()) {
                 sender.sendMessage(ChatColor.RED + "Turning off /gts...");
                 sender.sendMessage(ChatColor.RED + "This does NOT persist between restarts");
-                PlayerShopOverhaul.getInstance().unregisterCommand();
+                PlayerShopOverhaul.getInstance().disableGts();
                 sender.sendMessage(ChatColor.RED + "Turned /gts off");
             }
             else {
                 sender.sendMessage(ChatColor.GREEN + "Turning on /gts...");
-                PlayerShopOverhaul.getInstance().registerCommand();
+                PlayerShopOverhaul.getInstance().enableGts();
                 sender.sendMessage(ChatColor.GREEN + "Turned /gts on");
             }
         }

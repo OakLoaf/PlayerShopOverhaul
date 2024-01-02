@@ -13,7 +13,7 @@ public class ClaimCommand implements SubCommand {
     @Override
     public void onCommand(CommandSender sender, String[] args) {
         if (sender instanceof Player player && sender.hasPermission("playershopoverhaul.gts.claim")) {
-            if (!PlayerShopOverhaul.getInstance().isCommandRegistered()) {
+            if (!PlayerShopOverhaul.getInstance().isGtsEnabled()) {
                 sender.sendMessage(PlayerShopOverhaul.getInstance().getConfigHandler().getGtsDisabledMessage());
                 return;
             }

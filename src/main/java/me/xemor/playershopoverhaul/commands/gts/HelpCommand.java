@@ -12,7 +12,7 @@ public class HelpCommand implements SubCommand {
     public void onCommand(CommandSender sender, String[] args) {
         if (sender.hasPermission("playershopoverhaul.gts.help")) {
             PlayerShopOverhaul instance = PlayerShopOverhaul.getInstance();
-            if (!instance.isCommandRegistered()) {
+            if (!instance.isGtsEnabled()) {
                 sender.sendMessage(instance.getConfigHandler().getGtsDisabledMessage());
                 return;
             }

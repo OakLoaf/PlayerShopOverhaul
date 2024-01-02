@@ -25,7 +25,7 @@ public final class PlayerShopOverhaul extends JavaPlugin implements Listener {
     private BukkitAudiences bukkitAudiences;
     private Economy econ;
     private boolean hasPlaceholderAPI = false;
-    private boolean isCommandRegistered = true;
+    private boolean isGtsEnabled = true;
     private OfflinePlayerCache offlinePlayerCache = new OfflinePlayerCache();
 
     @Override
@@ -36,7 +36,7 @@ public final class PlayerShopOverhaul extends JavaPlugin implements Listener {
         configHandler = new ConfigHandler();
         globalTradeSystem = new GlobalTradeSystem();
         bukkitAudiences = BukkitAudiences.create(this);
-        registerCommand();
+        enableGts();
         PluginCommand pso = this.getCommand("pso");
         PSOCommand psoCommand = new PSOCommand();
         pso.setTabCompleter(psoCommand);
@@ -51,22 +51,23 @@ public final class PlayerShopOverhaul extends JavaPlugin implements Listener {
         globalTradeSystem.getStorage().setUsername(e.getPlayer().getUniqueId(), e.getPlayer().getName());
     }
 
-    public void registerCommand() {
+    public void enableGts() {
         GTSCommand gtsCommand = new GTSCommand("gts");
         gtsCommand.setAliases(configHandler.getGtsCommandAliases());
+        isGtsEnabled = true;
 
         try {
             getCommandMap().register("gts", gtsCommand);
-            isCommandRegistered = true;
         } catch (NoSuchFieldException | IllegalAccessException e) {
             e.printStackTrace();
         }
     }
 
-    public void unregisterCommand() {
+    public void disableGts() {
         for (Player player : Bukkit.getOnlinePlayers()) {
             player.closeInventory();
         }
+        isGtsEnabled = false;
 //
 //        PluginCommand gts = this.getServer().getPluginCommand("gts");
 //        gts.setExecutor((sender, command, label, args) -> true);
@@ -81,9 +82,7 @@ public final class PlayerShopOverhaul extends JavaPlugin implements Listener {
 
             commandMap.getKnownCommands().values().stream()
                 .filter(command -> command.getLabel().equalsIgnoreCase("gts") || command.getAliases().contains("gts"))
-                .findFirst().ifPresent(match -> match.unregister(commandMap));
-
-            isCommandRegistered = false;
+                .findFirst().ifPresent(command -> command.unregister(commandMap));
         } catch (NoSuchFieldException | IllegalAccessException e) {
             e.printStackTrace();
         }
@@ -121,8 +120,8 @@ public final class PlayerShopOverhaul extends JavaPlugin implements Listener {
         return hasPlaceholderAPI;
     }
 
-    public boolean isCommandRegistered() {
-        return isCommandRegistered;
+    public boolean isGtsEnabled() {
+        return isGtsEnabled;
     }
 
     public BukkitAudiences getBukkitAudiences() {
