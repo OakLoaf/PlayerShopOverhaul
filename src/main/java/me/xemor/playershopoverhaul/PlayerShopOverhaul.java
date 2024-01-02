@@ -15,7 +15,7 @@ import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
 
-import java.util.List;
+import java.lang.reflect.Field;
 
 public final class PlayerShopOverhaul extends JavaPlugin implements Listener {
 
@@ -52,21 +52,47 @@ public final class PlayerShopOverhaul extends JavaPlugin implements Listener {
     }
 
     public void registerCommand() {
-        PluginCommand gts = this.getServer().getPluginCommand("gts");
-        GTSCommand gtsCommand = new GTSCommand();
-        gts.setExecutor(gtsCommand);
-        gts.setTabCompleter(gtsCommand);
-        isCommandRegistered = true;
+        GTSCommand gtsCommand = new GTSCommand("gts");
+        gtsCommand.setAliases(configHandler.getGtsCommandAliases());
+
+        try {
+            getCommandMap().register("gts", gtsCommand);
+            isCommandRegistered = true;
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            e.printStackTrace();
+        }
     }
 
     public void unregisterCommand() {
         for (Player player : Bukkit.getOnlinePlayers()) {
             player.closeInventory();
         }
-        PluginCommand gts = this.getServer().getPluginCommand("gts");
-        gts.setExecutor((sender, command, label, args) -> true);
-        gts.setTabCompleter((sender, command, label, args) -> List.of());
-        isCommandRegistered = false;
+//
+//        PluginCommand gts = this.getServer().getPluginCommand("gts");
+//        gts.setExecutor((sender, command, label, args) -> true);
+//        gts.setTabCompleter((sender, command, label, args) -> List.of());
+//        isCommandRegistered = false;
+
+        try {
+            CommandMap commandMap = getCommandMap();
+            if (commandMap == null) {
+                return;
+            }
+
+            commandMap.getKnownCommands().values().stream()
+                .filter(command -> command.getLabel().equalsIgnoreCase("gts") || command.getAliases().contains("gts"))
+                .findFirst().ifPresent(match -> match.unregister(commandMap));
+
+            isCommandRegistered = false;
+        } catch (NoSuchFieldException | IllegalAccessException e) {
+            e.printStackTrace();
+        }
+    }
+
+    private CommandMap getCommandMap() throws NoSuchFieldException, IllegalAccessException {
+        final Field bukkitCommandMap = Bukkit.getServer().getClass().getDeclaredField("commandMap");
+        bukkitCommandMap.setAccessible(true);
+        return (CommandMap) bukkitCommandMap.get(Bukkit.getServer());
     }
 
     public void reload() {

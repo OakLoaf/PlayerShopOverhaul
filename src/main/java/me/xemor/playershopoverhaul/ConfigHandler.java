@@ -23,6 +23,7 @@ public class ConfigHandler {
     private int databasePort;
     private String databaseUsername;
     private String databasePassword;
+    private List<String> gtsCommandAliases;
     private Component helpMessage;
     private String soldMessage;
     private String claimedMessage;
@@ -54,6 +55,7 @@ public class ConfigHandler {
         this.databasePort = config.getInt("database.port", 3306);
         this.databaseUsername = config.getString("database.username", "");
         this.databasePassword = config.getString("database.password", "");
+        this.gtsCommandAliases = config.getStringList("gts-command-aliases");
         this.helpMessage = MiniMessage.miniMessage().deserialize(language.getStringList("help").stream().reduce("", (str1, str2) -> str1 + "\n" + str2));
         this.listingName = language.getString("listing.name", "<r><b><name>");
         this.listingLore = language.getStringList("listing.lore");
@@ -90,6 +92,10 @@ public class ConfigHandler {
 
     public String getDatabasePassword() {
         return databasePassword;
+    }
+
+    public List<String> getGtsCommandAliases() {
+        return gtsCommandAliases;
     }
 
     public int getServerID() { return serverID; }

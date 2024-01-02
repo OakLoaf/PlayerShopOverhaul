@@ -1,22 +1,18 @@
 package me.xemor.playershopoverhaul.commands.gts;
 
-
 import me.xemor.playershopoverhaul.commands.SubCommand;
-import me.xemor.playershopoverhaul.commands.gts.GTSCommandType;
 import org.bukkit.command.Command;
-import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
-import org.bukkit.command.TabExecutor;
 import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 
-public class GTSCommand implements CommandExecutor, TabExecutor {
+public class GTSCommand extends Command {
 
     private final EnumMap<GTSCommandType, SubCommand> map = new EnumMap<>(GTSCommandType.class);
 
-    public GTSCommand() {
+    public GTSCommand(String name) {
+        super(name);
         map.put(GTSCommandType.SELL, new SellItemCommand());
         map.put(GTSCommandType.SHOW, new ShowListingCommand());
         map.put(GTSCommandType.HELP, new HelpCommand());
@@ -24,7 +20,7 @@ public class GTSCommand implements CommandExecutor, TabExecutor {
     }
 
     @Override
-    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String[] args) {
+    public boolean execute(@NotNull CommandSender sender, @NotNull String commandLabel, @NotNull String[] args) {
         GTSCommandType gtsCommandType = null;
         if (args.length == 0) {
             gtsCommandType = GTSCommandType.SHOW;
@@ -40,9 +36,8 @@ public class GTSCommand implements CommandExecutor, TabExecutor {
         return true;
     }
 
-    @Nullable
     @Override
-    public List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String alias, @NotNull String[] args) {
+    public @NotNull List<String> tabComplete(@NotNull CommandSender sender, @NotNull String alias, @NotNull String[] args) throws IllegalArgumentException {
         if (args.length == 1) {
             List<String> list = new ArrayList<>();
             for (GTSCommandType type : GTSCommandType.values()) {
