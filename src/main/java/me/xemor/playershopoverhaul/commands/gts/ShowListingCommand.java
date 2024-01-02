@@ -20,6 +20,11 @@ public class ShowListingCommand implements SubCommand {
     @Override
     public void onCommand(CommandSender sender, String[] args) {
         if (sender instanceof Player player && sender.hasPermission("playershopoverhaul.gts.show")) {
+            if (!PlayerShopOverhaul.getInstance().isCommandRegistered()) {
+                sender.sendMessage(PlayerShopOverhaul.getInstance().getConfigHandler().getGtsDisabledMessage());
+                return;
+            }
+
             if (args.length == 3 && sender.hasPermission("playershopoverhaul.gts.show.others")) {
                 Player otherPlayer = Bukkit.getPlayer(args[1]);
                 CompletableFuture<UUID> uuidFuture;

@@ -13,6 +13,11 @@ public class ClaimCommand implements SubCommand {
     @Override
     public void onCommand(CommandSender sender, String[] args) {
         if (sender instanceof Player player && sender.hasPermission("playershopoverhaul.gts.claim")) {
+            if (!PlayerShopOverhaul.getInstance().isCommandRegistered()) {
+                sender.sendMessage(PlayerShopOverhaul.getInstance().getConfigHandler().getGtsDisabledMessage());
+                return;
+            }
+
             CompletableFuture<Double> moneyFuture = PlayerShopOverhaul.getInstance().getGlobalTradeSystem().claimPayment(player);
             moneyFuture.thenAccept((money) -> {
                 PlayerShopOverhaul playerShopOverhaul = PlayerShopOverhaul.getInstance();

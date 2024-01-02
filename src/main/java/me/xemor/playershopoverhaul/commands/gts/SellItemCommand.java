@@ -17,6 +17,11 @@ public class SellItemCommand implements SubCommand {
     @Override
     public void onCommand(CommandSender sender, String[] args) {
         if (sender instanceof Player && sender.hasPermission("playershopoverhaul.gts.sell")) {
+            if (!PlayerShopOverhaul.getInstance().isCommandRegistered()) {
+                sender.sendMessage(PlayerShopOverhaul.getInstance().getConfigHandler().getGtsDisabledMessage());
+                return;
+            }
+
             Player player = (Player) sender;
             if (args.length == 2) {
                 ItemStack itemInMainHand = player.getInventory().getItemInMainHand();

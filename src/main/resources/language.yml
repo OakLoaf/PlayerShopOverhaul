@@ -6,6 +6,7 @@ help:
   - "<gray>/gts sell <price>"
   - "<gray>/gts show"
   - "<gray>/gts claim"
+gts-disabled: "<red>The Global Trade System is currently disabled, please check back later!"
 sell:
   soldmessage: "<gray>You have sold your items for <priceper> each!"
 claim:

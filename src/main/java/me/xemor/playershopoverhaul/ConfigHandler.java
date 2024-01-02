@@ -25,6 +25,7 @@ public class ConfigHandler {
     private String databasePassword;
     private List<String> gtsCommandAliases;
     private Component helpMessage;
+    private String gtsDisabledMessage;
     private String soldMessage;
     private String claimedMessage;
     private String listingName;
@@ -57,6 +58,7 @@ public class ConfigHandler {
         this.databasePassword = config.getString("database.password", "");
         this.gtsCommandAliases = config.getStringList("gts-command-aliases");
         this.helpMessage = MiniMessage.miniMessage().deserialize(language.getStringList("help").stream().reduce("", (str1, str2) -> str1 + "\n" + str2));
+        this.gtsDisabledMessage = language.getString("gts-disabled", "<red>The Global Trade System is currently disabled, please check back later!");
         this.listingName = language.getString("listing.name", "<r><b><name>");
         this.listingLore = language.getStringList("listing.lore");
         this.claimedMessage = language.getString("claim.claimed", "<gray>You claimed <money> dollars!");
@@ -101,6 +103,10 @@ public class ConfigHandler {
     public int getServerID() { return serverID; }
 
     public Component getHelpMessage() { return helpMessage; }
+
+    public String getGtsDisabledMessage() {
+        return gtsDisabledMessage;
+    }
 
     public Component getClaimedMessage(double money) { return MiniMessage.miniMessage().deserialize(claimedMessage, Placeholder.unparsed("money", String.valueOf(money))); }
 

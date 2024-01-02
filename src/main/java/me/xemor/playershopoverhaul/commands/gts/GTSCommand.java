@@ -1,5 +1,6 @@
 package me.xemor.playershopoverhaul.commands.gts;
 
+import me.xemor.playershopoverhaul.PlayerShopOverhaul;
 import me.xemor.playershopoverhaul.commands.SubCommand;
 import org.bukkit.command.Command;
 import org.bukkit.command.CommandSender;
@@ -21,6 +22,11 @@ public class GTSCommand extends Command {
 
     @Override
     public boolean execute(@NotNull CommandSender sender, @NotNull String commandLabel, @NotNull String[] args) {
+        if (!PlayerShopOverhaul.getInstance().isCommandRegistered()) {
+            sender.sendMessage(PlayerShopOverhaul.getInstance().getConfigHandler().getGtsDisabledMessage());
+            return true;
+        }
+
         GTSCommandType gtsCommandType = null;
         if (args.length == 0) {
             gtsCommandType = GTSCommandType.SHOW;
