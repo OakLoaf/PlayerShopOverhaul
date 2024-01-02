@@ -28,6 +28,7 @@ public class ConfigHandler {
     private String claimedMessage;
     private String listingName;
     private List<String> listingLore;
+    private String guiTitle;
     private ItemStack forwardArrow;
     private ItemStack backArrow;
     private ItemStack refresh;
@@ -57,6 +58,7 @@ public class ConfigHandler {
         this.listingName = language.getString("listing.name", "<r><b><name>");
         this.listingLore = language.getStringList("listing.lore");
         this.claimedMessage = language.getString("claim.claimed", "<gray>You claimed <money> dollars!");
+        this.guiTitle = language.getString("GUI.title");
         this.forwardArrow = new ItemStackData(language.getConfigurationSection("GUI.forwardArrow")).getItem();
         this.backArrow = new ItemStackData(language.getConfigurationSection("GUI.backArrow")).getItem();
         this.refresh = new ItemStackData(language.getConfigurationSection("GUI.refresh")).getItem();
@@ -101,6 +103,10 @@ public class ConfigHandler {
     public List<String> getListingLore(double price, int stock) { return listingLore.stream()
             .map((str) -> legacySerializer.serialize(MiniMessage.miniMessage().deserialize(str, Placeholder.unparsed("price", String.valueOf(price)), Placeholder.unparsed("stock", String.valueOf(stock)))))
             .collect(Collectors.toList());
+    }
+
+    public String getGuiTitle() {
+        return guiTitle;
     }
 
     public ItemStack getForwardArrow() {
