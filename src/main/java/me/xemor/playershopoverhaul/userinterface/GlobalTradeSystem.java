@@ -48,7 +48,7 @@ public class GlobalTradeSystem implements Listener {
     }
 
     public void showTradeSystemView(Player player) {
-        ChestInterface<GTSData> chestInterface = new ChestInterface<>("Global Trade System", 5, new GTSData("", 0));
+        ChestInterface<GTSData> chestInterface = new ChestInterface<>(PlayerShopOverhaul.getInstance().getConfigHandler().getGuiTitle(), 5, new GTSData("", 0));
         GTSData data = chestInterface.getInteractions().getData();
         ItemStack search = PlayerShopOverhaul.getInstance().getConfigHandler().getSearch();
         ItemStack myListings = PlayerShopOverhaul.getInstance().getConfigHandler().getListings();
