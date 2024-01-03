@@ -104,8 +104,8 @@ public class ConfigHandler {
 
     public Component getHelpMessage() { return helpMessage; }
 
-    public String getGtsDisabledMessage() {
-        return gtsDisabledMessage;
+    public Component getGtsDisabledMessage() {
+        return MiniMessage.miniMessage().deserialize(gtsDisabledMessage);
     }
 
     public Component getClaimedMessage(double money) { return MiniMessage.miniMessage().deserialize(claimedMessage, Placeholder.unparsed("money", String.valueOf(money))); }
