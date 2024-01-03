@@ -54,10 +54,7 @@ public final class PlayerShopOverhaul extends JavaPlugin implements Listener {
 
     public void enableGts() {
         GTSCommand gtsCommand = new GTSCommand("gts");
-
-        List<String> aliases = configHandler.getGtsCommandAliases();
-        aliases.add("gts");
-        gtsCommand.setAliases(aliases);
+        gtsCommand.setAliases(configHandler.getGtsCommandAliases());
 
         isGtsEnabled = true;
 
