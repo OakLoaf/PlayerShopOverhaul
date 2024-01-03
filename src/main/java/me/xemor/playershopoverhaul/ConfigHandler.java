@@ -62,7 +62,7 @@ public class ConfigHandler {
         this.listingName = language.getString("listing.name", "<r><b><name>");
         this.listingLore = language.getStringList("listing.lore");
         this.claimedMessage = language.getString("claim.claimed", "<gray>You claimed <money> dollars!");
-        this.guiTitle = language.getString("GUI.title");
+        this.guiTitle = language.getString("GUI.title", "Global Trade System");
         this.forwardArrow = new ItemStackData(language.getConfigurationSection("GUI.forwardArrow")).getItem();
         this.backArrow = new ItemStackData(language.getConfigurationSection("GUI.backArrow")).getItem();
         this.refresh = new ItemStackData(language.getConfigurationSection("GUI.refresh")).getItem();
