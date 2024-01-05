@@ -11,3 +11,7 @@ database:
   port: 3306
   username: ""
   password: ""
+
+gts-command-aliases:
+  - "globaltradesystem"
+  - "auctionhouse"

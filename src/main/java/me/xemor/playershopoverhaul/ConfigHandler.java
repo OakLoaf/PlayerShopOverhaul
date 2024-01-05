@@ -23,11 +23,14 @@ public class ConfigHandler {
     private int databasePort;
     private String databaseUsername;
     private String databasePassword;
+    private List<String> gtsCommandAliases;
     private Component helpMessage;
+    private String gtsDisabledMessage;
     private String soldMessage;
     private String claimedMessage;
     private String listingName;
     private List<String> listingLore;
+    private String guiTitle;
     private ItemStack forwardArrow;
     private ItemStack backArrow;
     private ItemStack refresh;
@@ -53,10 +56,13 @@ public class ConfigHandler {
         this.databasePort = config.getInt("database.port", 3306);
         this.databaseUsername = config.getString("database.username", "");
         this.databasePassword = config.getString("database.password", "");
+        this.gtsCommandAliases = config.getStringList("gts-command-aliases");
         this.helpMessage = MiniMessage.miniMessage().deserialize(language.getStringList("help").stream().reduce("", (str1, str2) -> str1 + "\n" + str2));
+        this.gtsDisabledMessage = language.getString("gts-disabled", "<red>The Global Trade System is currently disabled, please check back later!");
         this.listingName = language.getString("listing.name", "<r><b><name>");
         this.listingLore = language.getStringList("listing.lore");
         this.claimedMessage = language.getString("claim.claimed", "<gray>You claimed <money> dollars!");
+        this.guiTitle = language.getString("GUI.title", "Global Trade System");
         this.forwardArrow = new ItemStackData(language.getConfigurationSection("GUI.forwardArrow")).getItem();
         this.backArrow = new ItemStackData(language.getConfigurationSection("GUI.backArrow")).getItem();
         this.refresh = new ItemStackData(language.getConfigurationSection("GUI.refresh")).getItem();
@@ -90,9 +96,17 @@ public class ConfigHandler {
         return databasePassword;
     }
 
+    public List<String> getGtsCommandAliases() {
+        return gtsCommandAliases;
+    }
+
     public int getServerID() { return serverID; }
 
     public Component getHelpMessage() { return helpMessage; }
+
+    public Component getGtsDisabledMessage() {
+        return MiniMessage.miniMessage().deserialize(gtsDisabledMessage);
+    }
 
     public Component getClaimedMessage(double money) { return MiniMessage.miniMessage().deserialize(claimedMessage, Placeholder.unparsed("money", String.valueOf(money))); }
 
@@ -101,6 +115,10 @@ public class ConfigHandler {
     public List<String> getListingLore(double price, int stock) { return listingLore.stream()
             .map((str) -> legacySerializer.serialize(MiniMessage.miniMessage().deserialize(str, Placeholder.unparsed("price", String.valueOf(price)), Placeholder.unparsed("stock", String.valueOf(stock)))))
             .collect(Collectors.toList());
+    }
+
+    public String getGuiTitle() {
+        return guiTitle;
     }
 
     public ItemStack getForwardArrow() {
