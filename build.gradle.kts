@@ -1,7 +1,6 @@
 plugins {
     java
-    `kotlin-dsl`
-    id("com.github.johnrengelman.shadow") version("7.1.2")
+    id("com.github.johnrengelman.shadow") version("8.1.1")
 }
 
 group = "me.xemor"
@@ -16,34 +15,47 @@ repositories {
     maven { url = uri("https://repo.minebench.de/") }
     maven { url = uri("https://repo.extendedclip.com/content/repositories/placeholderapi/") }
     maven("https://repo.papermc.io/repository/maven-public/")
+    maven { url = uri("https://jitpack.io") }
 }
 
 dependencies {
     compileOnly("io.papermc.paper:paper-api:1.20.2-R0.1-SNAPSHOT")
-    compileOnly("me.xemor:UserInterface:1.6.6-SNAPSHOT")
     compileOnly("com.github.MilkBowl:VaultAPI:1.7")
     compileOnly("org.jetbrains:annotations:23.0.0")
     compileOnly("me.clip:placeholderapi:2.11.2")
-    shadow("net.kyori:adventure-text-minimessage:4.11.0")
-    shadow("net.kyori:adventure-platform-bukkit:4.1.1")
-    shadow("mysql:mysql-connector-java:8.0.29")
-    shadow("com.zaxxer:HikariCP:5.0.1")
-    shadow("org.xerial:sqlite-jdbc:3.36.0.3")
-    shadow("me.xemor:configurationdata:2.0.0-SNAPSHOT")
+    implementation("net.kyori:adventure-text-minimessage:4.11.0")
+    implementation("net.kyori:adventure-platform-bukkit:4.1.1")
+    implementation("mysql:mysql-connector-java:8.0.29")
+    implementation("com.zaxxer:HikariCP:5.0.1")
+    implementation("org.xerial:sqlite-jdbc:3.36.0.3")
+    implementation("com.github.Xemorr:ConfigurationData:537df1d205")
+    implementation("me.xemor:UserInterface:2.0.1-SNAPSHOT")
 }
 
 java {
-    configurations.compile.get().dependencies.remove(dependencies.gradleApi())
     toolchain.languageVersion.set(JavaLanguageVersion.of(17))
 }
 
-tasks.shadowJar {
-    minimize()
-    configurations = listOf(project.configurations.shadow.get())
-    val folder = System.getenv("pluginFolder")
-    destinationDirectory.set(file(folder))
-}
+tasks {
+    withType<JavaCompile> {
+        options.encoding = "UTF-8"
+    }
 
-tasks.processResources {
-    expand(project.properties)
+    shadowJar {
+        val folder = System.getenv("pluginFolder")
+        if (folder != null) {
+            destinationDirectory.set(file(folder))
+        }
+
+        archiveFileName.set("${project.name}-${project.version}.jar")
+    }
+
+    processResources{
+        expand(project.properties)
+
+        inputs.property("version", rootProject.version)
+        filesMatching("plugin.yml") {
+            expand("version" to rootProject.version)
+        }
+    }
 }

@@ -1,8 +1,6 @@
 package me.xemor.playershopoverhaul.commands.gts;
 
-import me.xemor.playershopoverhaul.ConfigHandler;
 import me.xemor.playershopoverhaul.commands.SubCommand;
-import me.xemor.playershopoverhaul.userinterface.GlobalTradeSystem;
 import me.xemor.playershopoverhaul.PlayerShopOverhaul;
 import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
@@ -17,6 +15,11 @@ public class SellItemCommand implements SubCommand {
     @Override
     public void onCommand(CommandSender sender, String[] args) {
         if (sender instanceof Player && sender.hasPermission("playershopoverhaul.gts.sell")) {
+            if (!PlayerShopOverhaul.getInstance().isGtsEnabled()) {
+                sender.sendMessage(PlayerShopOverhaul.getInstance().getConfigHandler().getGtsDisabledMessage());
+                return;
+            }
+
             Player player = (Player) sender;
             if (args.length == 2) {
                 ItemStack itemInMainHand = player.getInventory().getItemInMainHand();

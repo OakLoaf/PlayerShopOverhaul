@@ -5,16 +5,11 @@ api-version: 1.17
 authors: [ Xemor_ ]
 description: Adds the global trade system 
 commands:
-  gts:
-    usage: /gts
-    description: Opens the global trade system
-    aliases: ["globaltradesystem", "auctionhouse"]
   pso:
     usage: /pso
     description: The admin commands of PlayerShopOverhaul
     aliases: ["playershopoverhaul"]
 depend:
-  - UserInterface
   - Vault
 softdepend:
   - PlaceholderAPI
