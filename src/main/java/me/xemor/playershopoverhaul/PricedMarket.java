@@ -10,7 +10,6 @@ import org.bukkit.persistence.PersistentDataType;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 public class PricedMarket extends Market implements Comparable<PricedMarket>  {
 
@@ -60,7 +59,7 @@ public class PricedMarket extends Market implements Comparable<PricedMarket>  {
             List<String> loadingLore = lore.stream().map((line) -> matchPlaceholders.matcher(line).replaceAll("Loading...")).toList();
             ItemMeta finalItemMeta = itemMeta;
             PlayerShopOverhaul.getInstance().getOfflinePlayerCache().getOfflinePlayer(goingPriceSeller).thenAccept((offlinePlayer -> {
-                Bukkit.getScheduler().runTask(PlayerShopOverhaul.getInstance(), () -> {
+                PlayerShopOverhaul.getInstance().getMorePaperLib().scheduling().globalRegionalScheduler().run(() -> {
                     String placeholderedDisplayName = PlaceholderAPI.setPlaceholders(offlinePlayer, name);
                     List<String> placeholderedLore = PlaceholderAPI.setPlaceholders(offlinePlayer, lore);
                     finalItemMeta.setDisplayName(placeholderedDisplayName);

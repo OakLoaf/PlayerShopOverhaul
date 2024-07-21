@@ -13,6 +13,7 @@ repositories {
     maven("https://oss.sonatype.org/content/groups/public/")
     maven("https://jitpack.io/")
     maven("https://repo.minebench.de/")
+    maven("https://mvn-repo.arim.space/lesser-gpl3/") // MorePaperLib
     maven("https://repo.extendedclip.com/content/repositories/placeholderapi/")
     maven("https://repo.papermc.io/repository/maven-public/")
     maven("https://jitpack.io")
@@ -25,6 +26,7 @@ dependencies {
     compileOnly("me.clip:placeholderapi:2.11.2")
     implementation("net.kyori:adventure-text-minimessage:4.11.0")
     implementation("net.kyori:adventure-platform-bukkit:4.1.1")
+    implementation("space.arim.morepaperlib:morepaperlib:0.4.3")
     implementation("mysql:mysql-connector-java:8.0.29")
     implementation("com.zaxxer:HikariCP:5.0.1")
     implementation("org.xerial:sqlite-jdbc:3.36.0.3")

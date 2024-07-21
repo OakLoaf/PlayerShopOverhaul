@@ -14,6 +14,7 @@ import org.bukkit.event.Listener;
 import org.bukkit.event.player.PlayerJoinEvent;
 import org.bukkit.plugin.RegisteredServiceProvider;
 import org.bukkit.plugin.java.JavaPlugin;
+import space.arim.morepaperlib.MorePaperLib;
 
 import java.lang.reflect.Field;
 import java.util.List;
@@ -21,6 +22,7 @@ import java.util.List;
 public final class PlayerShopOverhaul extends JavaPlugin implements Listener {
 
     private static PlayerShopOverhaul playerShopOverhaul;
+    private MorePaperLib morePaperLib;
     private ConfigHandler configHandler;
     private GlobalTradeSystem globalTradeSystem;
     private BukkitAudiences bukkitAudiences;
@@ -33,6 +35,7 @@ public final class PlayerShopOverhaul extends JavaPlugin implements Listener {
     public void onEnable() {
         // Plugin startup logic
         playerShopOverhaul = this;
+        morePaperLib = new MorePaperLib(this);
         UserInterface.enable(this);
         configHandler = new ConfigHandler();
         globalTradeSystem = new GlobalTradeSystem();
@@ -142,6 +145,10 @@ public final class PlayerShopOverhaul extends JavaPlugin implements Listener {
 
     public static PlayerShopOverhaul getInstance() {
         return playerShopOverhaul;
+    }
+
+    public MorePaperLib getMorePaperLib() {
+        return morePaperLib;
     }
 
     public OfflinePlayerCache getOfflinePlayerCache() {

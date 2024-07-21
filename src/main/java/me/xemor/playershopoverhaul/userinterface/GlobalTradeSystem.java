@@ -15,7 +15,6 @@ import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
-import org.bukkit.scheduler.BukkitRunnable;
 
 import java.util.HashMap;
 import java.util.List;
@@ -77,20 +76,12 @@ public class GlobalTradeSystem implements Listener {
         chestInterface.getInteractions().addSimpleInteraction(refresh, this::showTradeSystemView);
         chestInterface.getInteractions().addSimpleInteraction(search, (otherPlayer) -> {
             player.closeInventory();
-            new BukkitRunnable() {
-                @Override
-                public void run() {
-                    textInterface.getInput(otherPlayer, (result) -> {
-                        data.setCurrentSearch(result);
-                        new BukkitRunnable() {
-                            @Override
-                            public void run() {
-                                updateTradeSystemView(otherPlayer, chestInterface);
-                            }
-                        }.runTask(PlayerShopOverhaul.getInstance());
-                    });
-                }
-            }.runTaskLater(PlayerShopOverhaul.getInstance(), 2L);
+            PlayerShopOverhaul.getInstance().getMorePaperLib().scheduling().globalRegionalScheduler().runDelayed(() -> {
+                textInterface.getInput(otherPlayer, (result) -> {
+                    data.setCurrentSearch(result);
+                    updateTradeSystemView(otherPlayer, chestInterface);
+                });
+            }, 2);
         });
         chestInterface.getInteractions().addInteraction(
                 (item -> item != null && item.hasItemMeta() &&
@@ -101,13 +92,13 @@ public class GlobalTradeSystem implements Listener {
                     double cachedGoingPrice = item.getItemMeta().getPersistentDataContainer().get(priceKey, PersistentDataType.DOUBLE);
                     CompletableFuture<PricedMarket> marketFuture = storage.getPricedMarket(marketID);
                     marketFuture.exceptionally((ignored) -> {
-                        Bukkit.getScheduler().runTask(PlayerShopOverhaul.getInstance(), () -> clickPlayer.sendMessage(ChatColor.RED + "There is insufficient stock!"));
+                        clickPlayer.sendMessage(ChatColor.RED + "There is insufficient stock!");
                         return null;
                     })
                     .thenAccept((market) -> {
                         try {
                             if (market.getGoingPrice() > cachedGoingPrice * 1.1) {
-                                Bukkit.getScheduler().runTask(PlayerShopOverhaul.getInstance(), () -> clickPlayer.sendMessage(ChatColor.RED + "Please try again and refresh/reopen the store in one minute! The price has increased by more than 10% since it was read."));
+                                clickPlayer.sendMessage(ChatColor.RED + "Please try again and refresh/reopen the store in one minute! The price has increased by more than 10% since it was read.");
                                 return;
                             }
                             if (clickType == ClickType.LEFT) {
@@ -117,13 +108,13 @@ public class GlobalTradeSystem implements Listener {
                                         for (ItemStack leftover : items.values()) {
                                             clickPlayer.getLocation().getWorld().dropItem(clickPlayer.getLocation(), leftover);
                                         }
-                                        Bukkit.getScheduler().runTask(PlayerShopOverhaul.getInstance(), () -> clickPlayer.sendMessage(ChatColor.GREEN + String.format("It was bought successfully for %.2f! You now have %.2f.", response.amount, response.balance)));
+                                        clickPlayer.sendMessage(ChatColor.GREEN + String.format("It was bought successfully for %.2f! You now have %.2f.", response.amount, response.balance));
                                     }
                                     else {
-                                        Bukkit.getScheduler().runTask(PlayerShopOverhaul.getInstance(), () -> clickPlayer.sendMessage(ChatColor.RED + "You have insufficient funds!"));
+                                        clickPlayer.sendMessage(ChatColor.RED + "You have insufficient funds!");
                                     }
                                 }).exceptionally((throwable -> {
-                                    Bukkit.getScheduler().runTask(PlayerShopOverhaul.getInstance(), () -> clickPlayer.sendMessage(ChatColor.RED + "There is insufficient stock!"));
+                                    clickPlayer.sendMessage(ChatColor.RED + "There is insufficient stock!");
                                     return null;
                                 }));
                             }
@@ -136,13 +127,13 @@ public class GlobalTradeSystem implements Listener {
                                         for (ItemStack leftover : items.values()) {
                                             clickPlayer.getLocation().getWorld().dropItem(clickPlayer.getLocation(), leftover);
                                         }
-                                        Bukkit.getScheduler().runTask(PlayerShopOverhaul.getInstance(), () -> clickPlayer.sendMessage(ChatColor.GREEN + String.format("You have bought 64 successfully for %.2f! You now have %.2f.", response.amount, response.balance)));
+                                        clickPlayer.sendMessage(ChatColor.GREEN + String.format("You have bought 64 successfully for %.2f! You now have %.2f.", response.amount, response.balance));
                                     }
                                     else {
-                                        Bukkit.getScheduler().runTask(PlayerShopOverhaul.getInstance(), () -> clickPlayer.sendMessage(ChatColor.RED + "You have insufficient funds!"));
+                                        clickPlayer.sendMessage(ChatColor.RED + "You have insufficient funds!");
                                     }
                                 }).exceptionally((throwable -> {
-                                    Bukkit.getScheduler().runTask(PlayerShopOverhaul.getInstance(), () -> clickPlayer.sendMessage(ChatColor.RED + "There is insufficient stock to buy 64!"));
+                                    clickPlayer.sendMessage(ChatColor.RED + "There is insufficient stock to buy 64!");
                                     return null;
                                 }));
                             }
@@ -169,28 +160,21 @@ public class GlobalTradeSystem implements Listener {
         int offset = 21 * page;
         CompletableFuture<List<PricedMarket>> marketsFuture = storage.getMarkets(offset, search);
         marketsFuture.thenAccept((markets) -> {
-            new BukkitRunnable() {
-                @Override
-                public void run() {
-                    assert markets.size() <= 21;
-                    for (int i = 0; i < 21; i++) { //markets.size() should be 21 in all circumstances as a page has 21 items on it
-                        int index = i + 10 + (i / 7) * 2;
-                        if (i < markets.size()) {
-                            PricedMarket pricedMarket = markets.get(i);
-                            PricedMarket.MarketRepresentation representation = pricedMarket.getMarketRepresentation();
-                            inventory.setItem(index, representation.instant());
-                            representation.finished().thenAccept((finished) -> {
-                                Bukkit.getScheduler().runTask(PlayerShopOverhaul.getInstance(), () -> {
-                                    inventory.setItem(index, finished);
-                                });
-                            });
-                        }
-                        else {
-                            inventory.setItem(index, air);
-                        }
+            PlayerShopOverhaul.getInstance().getMorePaperLib().scheduling().globalRegionalScheduler().run(() -> {
+                assert markets.size() <= 21;
+                for (int i = 0; i < 21; i++) { //markets.size() should be 21 in all circumstances as a page has 21 items on it
+                    int index = i + 10 + (i / 7) * 2;
+                    if (i < markets.size()) {
+                        PricedMarket pricedMarket = markets.get(i);
+                        PricedMarket.MarketRepresentation representation = pricedMarket.getMarketRepresentation();
+                        inventory.setItem(index, representation.instant());
+                        representation.finished().thenAccept((finished) -> inventory.setItem(index, finished));
+                    }
+                    else {
+                        inventory.setItem(index, air);
                     }
                 }
-            }.runTask(PlayerShopOverhaul.getInstance());
+            });
         });
     }
 
@@ -252,27 +236,24 @@ public class GlobalTradeSystem implements Listener {
         CompletableFuture<List<Listing>> listingsFuture = storage.getPlayerListings(dataUUID, serverID, 21 * data.getPageNumber());
         listingsFuture.thenAccept((listings) -> {
             storage.getMarkets(listings).thenAccept((markets) -> {
-                new BukkitRunnable() {
-                    @Override
-                    public void run() {
-                        Inventory inventory = chestInterface.getInventory();
-                        for (int i = 0; i < 21; i++) {
-                            ItemStack item;
-                            int index = i + 10 + (i / 7) * 2;
-                            if (i < listings.size()) {
-                                item = markets.get(i).getItem();
-                                ItemMeta meta = item.getItemMeta();
-                                meta.getPersistentDataContainer().set(listingsIDKey, PersistentDataType.INTEGER, listings.get(i).getID());
-                                item.setItemMeta(meta);
-                                item.setAmount(listings.get(i).getStock());
-                                inventory.setItem(index, item);
-                            }
-                            else {
-                                inventory.setItem(index, air);
-                            }
+                PlayerShopOverhaul.getInstance().getMorePaperLib().scheduling().globalRegionalScheduler().run(() -> {
+                    Inventory inventory = chestInterface.getInventory();
+                    for (int i = 0; i < 21; i++) {
+                        ItemStack item;
+                        int index = i + 10 + (i / 7) * 2;
+                        if (i < listings.size()) {
+                            item = markets.get(i).getItem();
+                            ItemMeta meta = item.getItemMeta();
+                            meta.getPersistentDataContainer().set(listingsIDKey, PersistentDataType.INTEGER, listings.get(i).getID());
+                            item.setItemMeta(meta);
+                            item.setAmount(listings.get(i).getStock());
+                            inventory.setItem(index, item);
+                        }
+                        else {
+                            inventory.setItem(index, air);
                         }
                     }
-                }.runTask(PlayerShopOverhaul.getInstance());
+                });
             });
         });
     }
