@@ -14,8 +14,8 @@ import java.util.stream.Collectors;
 
 public class PricedMarket extends Market implements Comparable<PricedMarket>  {
 
-    private double goingPrice = Double.NEGATIVE_INFINITY;
-    private UUID goingPriceSeller = null;
+    private final double goingPrice;
+    private final UUID goingPriceSeller;
     private int stock = 0;
     private static Pattern matchPlaceholders = Pattern.compile("%(.*?)%");
 
