@@ -42,10 +42,7 @@ tasks {
     }
 
     shadowJar {
-        val folder = System.getenv("pluginFolder")
-        if (folder != null) {
-            destinationDirectory.set(file(folder))
-        }
+        destinationDirectory.set(file("D:\\Servers\\Paper 1.20.2\\plugins\\update"))
 
         archiveFileName.set("${project.name}-${project.version}.jar")
     }

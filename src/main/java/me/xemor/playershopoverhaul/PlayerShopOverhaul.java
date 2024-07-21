@@ -2,6 +2,7 @@ package me.xemor.playershopoverhaul;
 
 import me.xemor.playershopoverhaul.commands.gts.GTSCommand;
 import me.xemor.playershopoverhaul.commands.pso.PSOCommand;
+import me.xemor.playershopoverhaul.listener.BlockListener;
 import me.xemor.playershopoverhaul.userinterface.GlobalTradeSystem;
 import me.xemor.userinterface.UserInterface;
 import net.kyori.adventure.platform.bukkit.BukkitAudiences;
@@ -45,6 +46,7 @@ public final class PlayerShopOverhaul extends JavaPlugin implements Listener {
         if (!setupEconomy()) this.getLogger().severe("Failed to setup economy plugin");
         if (Bukkit.getPluginManager().getPlugin("PlaceholderAPI") != null) hasPlaceholderAPI = true;
         this.getServer().getPluginManager().registerEvents(this, this);
+        this.getServer().getPluginManager().registerEvents(new BlockListener(), this);
     }
 
     @EventHandler
