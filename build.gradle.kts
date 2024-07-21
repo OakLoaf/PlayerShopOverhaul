@@ -9,13 +9,13 @@ version = "1.3.4"
 repositories {
     mavenCentral()
     mavenLocal()
-    maven { url = uri("https://hub.spigotmc.org/nexus/content/repositories/snapshots/") }
-    maven { url = uri("https://oss.sonatype.org/content/groups/public/") }
-    maven { url = uri("https://jitpack.io/") }
-    maven { url = uri("https://repo.minebench.de/") }
-    maven { url = uri("https://repo.extendedclip.com/content/repositories/placeholderapi/") }
+    maven("https://hub.spigotmc.org/nexus/content/repositories/snapshots/")
+    maven("https://oss.sonatype.org/content/groups/public/")
+    maven("https://jitpack.io/")
+    maven("https://repo.minebench.de/")
+    maven("https://repo.extendedclip.com/content/repositories/placeholderapi/")
     maven("https://repo.papermc.io/repository/maven-public/")
-    maven { url = uri("https://jitpack.io") }
+    maven("https://jitpack.io")
 }
 
 dependencies {
