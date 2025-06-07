@@ -3,17 +3,20 @@ package me.xemor.playershopoverhaul.commands.gts;
 import me.xemor.playershopoverhaul.PlayerShopOverhaul;
 import me.xemor.playershopoverhaul.commands.SubCommand;
 import org.bukkit.command.Command;
+import org.bukkit.command.CommandExecutor;
 import org.bukkit.command.CommandSender;
+import org.bukkit.command.TabCompleter;
+import org.bukkit.entity.Player;
 import org.jetbrains.annotations.NotNull;
+import org.jetbrains.annotations.Nullable;
 
 import java.util.*;
 
-public class GTSCommand extends Command {
+public class GTSCommand implements CommandExecutor, TabCompleter {
 
     private final EnumMap<GTSCommandType, SubCommand> map = new EnumMap<>(GTSCommandType.class);
 
-    public GTSCommand(String name) {
-        super(name);
+    public GTSCommand() {
         map.put(GTSCommandType.SELL, new SellItemCommand());
         map.put(GTSCommandType.SHOW, new ShowListingCommand());
         map.put(GTSCommandType.HELP, new HelpCommand());
@@ -21,9 +24,11 @@ public class GTSCommand extends Command {
     }
 
     @Override
-    public boolean execute(@NotNull CommandSender sender, @NotNull String commandLabel, @NotNull String[] args) {
+    public boolean onCommand(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String @NotNull [] args) {
         if (!PlayerShopOverhaul.getInstance().isGtsEnabled()) {
-            sender.sendMessage(PlayerShopOverhaul.getInstance().getConfigHandler().getGtsDisabledMessage());
+            if (sender instanceof Player player) {
+                player.sendMessage(PlayerShopOverhaul.getInstance().getConfigHandler().getGtsDisabledMessage());
+            }
             return true;
         }
 
@@ -43,7 +48,7 @@ public class GTSCommand extends Command {
     }
 
     @Override
-    public @NotNull List<String> tabComplete(@NotNull CommandSender sender, @NotNull String alias, @NotNull String[] args) throws IllegalArgumentException {
+    public @Nullable List<String> onTabComplete(@NotNull CommandSender sender, @NotNull Command command, @NotNull String label, @NotNull String @NotNull [] args) {
         if (args.length == 1) {
             List<String> list = new ArrayList<>();
             for (GTSCommandType type : GTSCommandType.values()) {

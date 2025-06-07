@@ -3,16 +3,29 @@ package me.xemor.playershopoverhaul.storage;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import me.xemor.playershopoverhaul.*;
+import me.xemor.playershopoverhaul.configuration.ConfigHandler;
 import me.xemor.playershopoverhaul.itemserialization.ItemSerialization;
+import me.xemor.playershopoverhaul.storage.statements.*;
+import me.xemor.playershopoverhaul.storage.uuidsupport.UUIDArgumentFactory;
+import me.xemor.playershopoverhaul.storage.uuidsupport.UUIDColumnMapper;
 import net.milkbowl.vault.economy.Economy;
 import net.milkbowl.vault.economy.EconomyResponse;
 import org.bukkit.Bukkit;
+import org.bukkit.OfflinePlayer;
 import org.bukkit.inventory.ItemStack;
+import org.jdbi.v3.core.Handle;
+import org.jdbi.v3.core.Jdbi;
+import org.jdbi.v3.core.argument.Arguments;
+import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
-import java.io.*;
-import java.nio.ByteBuffer;
-import java.sql.*;
-import java.util.*;
+import java.io.BufferedReader;
+import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Properties;
+import java.util.UUID;
 import java.util.concurrent.*;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
@@ -20,40 +33,69 @@ import java.util.stream.Collectors;
 public class SQLStorage implements Storage {
 
     private final ConfigHandler configHandler;
-    DatabaseSource source;
-    ExecutorService threads;
+    private final ExecutorService threads;
+    private Jdbi jdbi;
 
     public SQLStorage(ConfigHandler configHandler) {
         this.configHandler = configHandler;
+        threads = new ThreadPoolExecutor(1, 8,
+                60L, TimeUnit.SECONDS,
+                new LinkedBlockingQueue<>(),
+                new ThreadFactory() {
+                    private final ThreadFactory defaultFactory = Executors.defaultThreadFactory();
+
+                    @Override
+                    public Thread newThread(Runnable r) {
+                        Thread thread = defaultFactory.newThread(r);
+                        thread.setUncaughtExceptionHandler((t, e) ->
+                                PlayerShopOverhaul.getInstance().getLogger().log(Level.SEVERE, "Uncaught exception in thread " + t.getName(), e)
+                        );
+                        return thread;
+                    }
+                });
+        initialiseDataSource();
     }
 
-    private void initMySQLDataSource(String dbName, String host, int port, String user, String password) {
+    private void initialiseDataSource() {
+        boolean isMySQL = configHandler.getDatabaseType().equalsIgnoreCase("mysql");
+        Properties props;
+        if (isMySQL) props = getMySQLProperties();
+        else props = getH2Properties();
+        HikariConfig hikariConfig = new HikariConfig(props);
+        hikariConfig.setMaximumPoolSize(4);
+        HikariDataSource hikariDataSource = new HikariDataSource(hikariConfig);
+        jdbi = Jdbi.create(hikariDataSource)
+                .registerArgument(new UUIDArgumentFactory())
+                .registerColumnMapper(UUID.class, new UUIDColumnMapper())
+                .installPlugin(new SqlObjectPlugin());
+        setupTable("setup.sql");
+    }
+
+    private Properties getMySQLProperties() {
         Properties props = new Properties();
         props.setProperty("dataSourceClassName", "com.mysql.cj.jdbc.MysqlDataSource");
-        props.setProperty("dataSource.serverName", host);
-        props.setProperty("dataSource.portNumber", String.valueOf(port));
-        props.setProperty("dataSource.user", user);
-        props.setProperty("dataSource.password", password);
-        props.setProperty("dataSource.databaseName", dbName);
-        HikariConfig hikariConfig = new HikariConfig(props);
-        hikariConfig.setMaximumPoolSize(8);
-        source = new DatabaseSource(new HikariDataSource(hikariConfig));
-        testDataSource(source);
+        props.setProperty("dataSource.serverName", configHandler.getDatabaseHost());
+        props.setProperty("dataSource.portNumber", String.valueOf(configHandler.getDatabasePort()));
+        props.setProperty("dataSource.user", configHandler.getDatabaseUsername());
+        props.setProperty("dataSource.password", configHandler.getDatabasePassword());
+        props.setProperty("dataSource.databaseName", configHandler.getDatabaseName());
+        return props;
     }
 
-    void testDataSource(DatabaseSource dataSource) {
-        try (Connection conn = dataSource.getConnection()) {
-            if (!conn.isValid(1000)) {
-                throw new SQLException("Could not establish database connection.");
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
+    private Properties getH2Properties() {
+        Properties props = new Properties();
+        props.setProperty("dataSourceClassName", "org.h2.jdbcx.JdbcDataSource");
+        props.setProperty("dataSource.url", "jdbc:h2:file:%s;MODE=MySQL;DATABASE_TO_UPPER=false;AUTO_SERVER=TRUE".formatted(
+                PlayerShopOverhaul.getInstance().getDataFolder().getAbsolutePath() + "/database.db"
+        ));
+        props.setProperty("dataSource.user", "sa"); // default H2 user
+        props.setProperty("dataSource.password", ""); // default H2 password
+        return props;
     }
 
-    void setupTable(String fileName) {
+    private void setupTable(String fileName) {
         String setup;
-        try (InputStream in = SQLStorage.class.getClassLoader().getResourceAsStream(fileName)) {
+        try (InputStream in = getClass().getClassLoader().getResourceAsStream(fileName)) {
             setup = new BufferedReader(new InputStreamReader(in)).lines().collect(Collectors.joining(""));
         } catch (IOException e) {
             PlayerShopOverhaul.getInstance().getLogger().log(Level.SEVERE, "Could not read db setup file.", e);
@@ -62,339 +104,224 @@ public class SQLStorage implements Storage {
         }
         String[] split = setup.split("\\|");
         for (String str : split) {
-            try (Connection conn = source.getConnection(); PreparedStatement stmt = conn.prepareStatement(str)) {
-                stmt.execute();
-            } catch (SQLException e) {
-                e.printStackTrace();
+            try (Handle handle = jdbi.open()) {
+                handle.execute(str);
             }
         }
         PlayerShopOverhaul.getInstance().getLogger().info("Database setup complete.");
     }
 
     @Override
-    public void setup() {
-        String name = configHandler.getDatabaseName();
-        String host = configHandler.getDatabaseHost();
-        int port = configHandler.getDatabasePort();
-        String user = configHandler.getDatabaseUsername();
-        String password = configHandler.getDatabasePassword();
-        initMySQLDataSource(name, host, port, user, password);
-        // Creates a pool that always has one thread ready,
-        // can have up to 4 threads,
-        // and times out extra threads after 60 seconds of inactivity
-        threads = new ThreadPoolExecutor(1, 8,
-                60L, TimeUnit.SECONDS,
-                new LinkedBlockingQueue<>());
-        setupTable("mysqlsetup.sql");
-    }
-
-    @Override
-    public void registerListing(UUID uuid, ItemStack item, int stock, double pricePer) {
-        ItemStack representativeItem = item.clone();
-        representativeItem.setAmount(1);
-        threads.submit(() -> {
-            try (Connection conn = source.getConnection(); PreparedStatement stmt = conn.prepareStatement(
-                    "INSERT INTO listings(sellerID, serverID, stock, pricePer, marketID) VALUES(?, ?, ?, ?, ?);"
-            )) {
-                int id = getMarketID(conn, representativeItem);
-                if (id == -1) { createMarket(conn, representativeItem); id = getMarketID(conn, representativeItem); }
-                PlayerShopOverhaul.getInstance().getLogger().fine(String.valueOf(id));
-                byte[] uuidBytes = getUUIDBinary(uuid);
-                stmt.setBytes(1, uuidBytes);
-                stmt.setInt(2, PlayerShopOverhaul.getInstance().getConfigHandler().getServerID());
-                stmt.setInt(3, stock);
-                stmt.setDouble(4, pricePer);
-                stmt.setInt(5, id);
-                stmt.execute();
-            } catch (SQLException | IOException e) {
-                e.printStackTrace();
-            }
+    public void registerListing(UUID uuid, ItemStack item, int stock, double pricePer) throws ItemTooLargeException {
+        ItemStack itemAmount1 = item.clone();
+        itemAmount1.setAmount(1);
+        byte[] serializedItem = ItemSerialization.itemStackToBinary(itemAmount1);
+        if (serializedItem.length > 65500) {
+            throw new ItemTooLargeException("The item was too large to be stored in the database!");
+        }
+        submitWithExceptionLogging(() -> {
+            int serverID = configHandler.getServerID();
+            jdbi.useTransaction((handle) -> {
+                handle.attach(MarketStatements.class).insertOrReplaceMarket(serializedItem, Market.getName(item));
+                handle.attach(ListingStatements.class).insertListing(uuid, serverID, stock, pricePer, serializedItem);
+            });
         });
     }
 
     @Override
     public CompletableFuture<Object> removeListing(int listingID) {
-        CompletableFuture<Object> completableFuture = new CompletableFuture<>();
-        threads.submit(() -> {
-            try (Connection conn = source.getConnection()) {
-                conn.setAutoCommit(false);
-                conn.createStatement().execute("START TRANSACTION");
-                PreparedStatement stmt = conn.prepareStatement(
-                        "DELETE FROM listings WHERE id = ?"
-                );
-                stmt.setInt(1, listingID);
-                int value = stmt.executeUpdate();
-                conn.createStatement().execute("COMMIT");
-                if (value > 0) {
-                    completableFuture.complete(true);
-                }
-                else {
-                    completableFuture.completeExceptionally(new IllegalStateException("This item no longer exists!"));
-                }
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
+        CompletableFuture<Object> future = new CompletableFuture<>();
+        submitWithExceptionLogging(() -> {
+            jdbi.useTransaction((handle) -> {
+                handle.attach(ListingStatements.class).deleteListing(listingID);
+            });
+            future.complete(true);
         });
-        return completableFuture;
+        return future;
     }
 
     @Override
     public CompletableFuture<Listing> getListing(int listingID) {
-        CompletableFuture<Listing> completableFuture = new CompletableFuture<>();
-        threads.submit(() -> {
-            try (Connection conn = source.getConnection(); PreparedStatement stmt = conn.prepareStatement(
-                    "SELECT * FROM listings WHERE id = ?"
-            )) {
-                stmt.setInt(1, listingID);
-                ResultSet resultSet = stmt.executeQuery();
-                resultSet.next();
-                UUID uuid = fromUUIDBinary(resultSet.getBytes("sellerID"));
-                int marketID = resultSet.getInt("marketID");
-                int stock = resultSet.getInt("stock");
-                double pricePer = resultSet.getDouble("pricePer");
-                completableFuture.complete(new Listing(listingID, uuid, marketID, stock, pricePer));
-            } catch (SQLException e) {
-                e.printStackTrace();
-            }
+        CompletableFuture<Listing> future = new CompletableFuture<>();
+        submitWithExceptionLogging(() -> {
+            Listing listing = jdbi.inTransaction((handle) -> {
+                return handle.attach(ListingStatements.class).getListing(listingID);
+            });
+            future.complete(listing);
         });
-        return completableFuture;
+        return future;
     }
 
     @Override
     public CompletableFuture<Market> getMarket(int marketID) {
-        CompletableFuture<Market> completableFuture = new CompletableFuture<>();
-        threads.submit(() -> {
-            Market market = getMarketBlocking(marketID);
-            if (market == null) {
-                completableFuture.completeExceptionally(new NullPointerException("Market is null!"));
-                return;
-            }
-            completableFuture.complete(market);
+        CompletableFuture<Market> future = new CompletableFuture<>();
+        submitWithExceptionLogging(() -> {
+            MarketDTO marketDTO = jdbi.inTransaction((handle) -> {
+                return handle.attach(MarketStatements.class).getMarketById(marketID);
+            });
+            future.complete(marketDTO.asMarket());
         });
-        return completableFuture;
+        return future;
     }
 
     @Override
     public CompletableFuture<PricedMarket> getPricedMarket(int marketID) {
         CompletableFuture<PricedMarket> future = new CompletableFuture<>();
-        threads.submit(() -> {
-            try (Connection conn = source.getConnection(); PreparedStatement stmt = conn.prepareStatement(
-                    """
-                    SELECT markets.item AS item, prices.price AS price, prices.stock AS stock, users.sellerID AS uuid
-                    FROM markets
-                    JOIN (SELECT min(pricePer) AS price, sum(stock) AS stock, marketID FROM listings GROUP BY marketID) AS prices
-                    ON prices.marketID = markets.id
-                    JOIN (SELECT sellerID, pricePer, marketID FROM listings) AS users
-                    ON users.pricePer = prices.price AND users.marketID = prices.marketID
-                    WHERE markets.id = ?
-                    """
-            )) {
-                stmt.setInt(1, marketID);
-                ResultSet resultSet = stmt.executeQuery();
-                resultSet.next();
-                byte[] itemBytes = resultSet.getBytes("item");
-                double goingPrice = resultSet.getDouble("price");
-                int stock = resultSet.getInt("stock");
-                UUID uuid = fromUUIDBinary(resultSet.getBytes("uuid"));
-                future.complete(new PricedMarket(marketID, ItemSerialization.binaryToItemStack(itemBytes), goingPrice, uuid, stock));
-            } catch (Exception e) {
-                e.printStackTrace();
-                future.completeExceptionally(e);
-            }
+        submitWithExceptionLogging(() -> {
+            PricedMarketStatements.PricedMarketDTO pricedMarketDTO = jdbi.inTransaction((handle) -> {
+                return handle.attach(PricedMarketStatements.class).getPricedMarketById(marketID);
+            });
+            future.complete(pricedMarketDTO.asPricedMarket());
         });
         return future;
     }
 
-    private Market getMarketBlocking(int marketID) {
-        try (Connection conn = source.getConnection(); PreparedStatement stmt = conn.prepareStatement(
-                """
-                SELECT markets.item AS item
-                FROM markets
-                WHERE markets.id = ?
-                """
-        )) {
-            stmt.setInt(1, marketID);
-            ResultSet resultSet = stmt.executeQuery();
-            resultSet.next();
-            byte[] itemBytes = resultSet.getBytes("item");
-            return new Market(marketID, ItemSerialization.binaryToItemStack(itemBytes));
-        } catch (SQLException e) {}
-        return null;
-    }
-
-    private int getMarketID(Connection conn, ItemStack item) {
-        try (PreparedStatement stmt = conn.prepareStatement(
-                "SELECT id FROM markets WHERE item = ?;"
-        )) {
-            byte[] binaryItem = ItemSerialization.itemStackToBinary(item);
-            stmt.setBytes(1, binaryItem);
-            ResultSet resultSet = stmt.executeQuery();
-            resultSet.next();
-            return resultSet.getInt(1);
-        } catch (SQLException e) {
-            return -1;
-        }
-    }
-
-    private void createMarket(Connection conn, ItemStack item) {
-        try (PreparedStatement stmt = conn.prepareStatement(
-                """
-                INSERT INTO markets(item, name) VALUES(?, ?);
-                """
-        )) {
-            stmt.setBytes(1, ItemSerialization.itemStackToBinary(item));
-            stmt.setString(2, Market.getName(item));
-            stmt.execute();
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-    }
-
     @Override
-    public CompletableFuture<List<PricedMarket>> getMarkets(int offset, String search) {
-        CompletableFuture<List<PricedMarket>> completableFuture = new CompletableFuture<>();
-        threads.submit(() -> {
-            try (Connection conn = source.getConnection(); PreparedStatement stmt = conn.prepareStatement(
-                    """
-                    SELECT id, item, prices.stock AS stock, prices.price AS price, prices.seller AS sellerID
-                    FROM markets
-                    JOIN (
-                    SELECT marketID, min(pricePer) AS price, sum(stock) AS stock, 
-                    FIRST_VALUE(listings.sellerID) over (PARTITION BY marketID ORDER BY pricePer) AS seller
-                    FROM listings
-                    GROUP BY marketID
-                    ) AS prices
-                    ON prices.marketID = markets.id
-                    WHERE name LIKE ?
-                    ORDER BY stock DESC
-                    LIMIT 21 OFFSET ?
-                    """
-            )) {
-                String lowerSearch = search.toLowerCase();
-                stmt.setString(1, "%" + lowerSearch + "%");
-                stmt.setInt(2, offset);
-                ResultSet resultSet = stmt.executeQuery();
-                List<PricedMarket> pricedMarkets = new ArrayList<>();
-                while (resultSet.next()) {
-                    int id = resultSet.getInt("id");
-                    byte[] itemBytes = resultSet.getBytes("item");
-                    double pricePer = resultSet.getDouble("price");
-                    int stock = resultSet.getInt("stock");
-                    UUID uuid = fromUUIDBinary(resultSet.getBytes("sellerID"));
-                    ItemStack itemStack = ItemSerialization.binaryToItemStack(itemBytes);
-                    pricedMarkets.add(new PricedMarket(id, itemStack, pricePer, uuid, stock));
-                }
-                completableFuture.complete(pricedMarkets);
-            } catch (Exception e) {
-                completableFuture.completeExceptionally(e);
-                e.printStackTrace();
-            }
+    public CompletableFuture<List<Listing>> getPlayerListings(UUID uuid, int serverID, int offset) {
+        CompletableFuture<List<Listing>> future = new CompletableFuture<>();
+        submitWithExceptionLogging(() -> {
+            List<Listing> listings = jdbi.inTransaction((handle) -> {
+                return handle.attach(ListingStatements.class).getPlayerListings(uuid, serverID, offset);
+            });
+            future.complete(listings);
         });
-        return completableFuture;
+        return future;
     }
 
     @Override
-    public CompletableFuture<Double> claimPayment(UUID uuid) {
+    public CompletableFuture<List<Market>> getMarkets(List<Listing> listings) {
+        CompletableFuture<List<Market>> future = new CompletableFuture<>();
+        if (listings.isEmpty()) future.complete(List.of());
+        else {
+            submitWithExceptionLogging(() -> {
+                List<MarketStatements.ListingIdToMarketDTO> listingIdToMarketDTOS = jdbi.inTransaction((handle) -> {
+                    return handle.attach(MarketStatements.class).getMarketsForListings(listings.stream().map(Listing::getID).toList());
+                });
+                List<Market> markets = listings.stream().flatMap(
+                        (it1) -> listingIdToMarketDTOS
+                                .stream()
+                                .filter((it2) -> it1.getID() == it2.listingID()).findFirst().stream()
+                ).map(
+                        (it) -> new Market(it.marketID(), ItemSerialization.binaryToItemStack(it.item()))
+                ).toList();
+                future.complete(markets);
+            });
+        }
+        return future;
+    }
+
+    @Override
+    public CompletableFuture<Double> costToPurchaseAmountFromMarket(int marketID, int amount) {
         CompletableFuture<Double> future = new CompletableFuture<>();
-        threads.submit(() -> {
-            try (Connection conn = source.getConnection(); PreparedStatement stmt = conn.prepareStatement(
-                    """
-                    SELECT id
-                    FROM payment
-                    WHERE sellerID = ?
-                    AND serverID = ?
-                    """
-            )) {
-                stmt.setBytes(1, getUUIDBinary(uuid));
-                stmt.setInt(2, PlayerShopOverhaul.getInstance().getConfigHandler().getServerID());
-                ResultSet resultSet = stmt.executeQuery();
-                List<Integer> ids = new ArrayList<>();
-                while (resultSet.next()) {
-                    ids.add(resultSet.getInt("id"));
+        submitWithExceptionLogging(() -> {
+            jdbi.useTransaction((handle) -> {
+                ListingStatements listingStatements = handle.attach(ListingStatements.class);
+                List<Listing> listings = listingStatements.listingsToPurchaseForStockAmount(marketID, amount);
+                int stockSum = 0;
+                double cost = 0;
+                for (Listing listing : listings) {
+                    if (stockSum > amount) break;
+                    stockSum += listing.getStock();
+                    double price = listing.getTotalPrice();
+                    if (stockSum > amount) {
+                        int surplusStock = stockSum - amount;
+                        price -= surplusStock * listing.getPricePer();
+                    }
+                    cost += price;
                 }
-                String idsSQLSet = createSQLSet(ids);
-                if ("()".equals(idsSQLSet)) { future.complete(0D); return; }
-                PreparedStatement sum = conn.prepareStatement(String.format("""
-                    SELECT SUM(toPay) AS pay
-                    FROM payment
-                    WHERE id IN %s
-                """, idsSQLSet));
-                resultSet = sum.executeQuery();
-                resultSet.next();
-                double toPay = resultSet.getDouble("pay");
-                PreparedStatement delete = conn.prepareStatement(String.format("""
-                        DELETE FROM payment
-                        WHERE id IN %s
-                        """, idsSQLSet));
-                delete.execute();
-                future.complete(toPay);
-            } catch (Exception e) {
-                future.completeExceptionally(e);
-                e.printStackTrace();
-            }
+                future.complete(cost);
+            });
         });
         return future;
     }
 
     @Override
-    public void setUsername(UUID uuid, String name) {
-        threads.submit(() -> {
-            try (Connection conn = source.getConnection(); PreparedStatement stmt = conn.prepareStatement(
-                    """
-                    REPLACE INTO nameToUUID(sellerID, username) VALUES(?, ?);
-                    """
-            )) {
-                stmt.setBytes(1, getUUIDBinary(uuid));
-                stmt.setString(2, name);
-                stmt.execute();
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
-        });
-    }
+    public CompletableFuture<EconomyResponse> purchaseFromMarket(UUID buyerUUID, int marketID, int quantityToPurchase, double maxPrice) {
+        CompletableFuture<EconomyResponse> future = new CompletableFuture<>();
+        submitWithExceptionLogging(() -> {
+            jdbi.useTransaction((handle) -> {
+                ListingStatements listingStatements = handle.attach(ListingStatements.class);
+                List<Listing> listings = listingStatements.listingsToPurchaseForStockAmount(marketID, quantityToPurchase);
+                int stockSum = 0;
+                double cost = 0;
+                List<PurchasedListing> purchasedListings = new ArrayList<>();
+                List<Integer> oldListings = new ArrayList<>();
+                Listing listingForReinsertion = null;
+                for (Listing listing : listings) {
+                    stockSum += listing.getStock();
 
-    @Override
-    public CompletableFuture<String> getUsername(UUID uuid) {
-        CompletableFuture<String> future = new CompletableFuture<>();
-        threads.submit(() -> {
-            try (Connection conn = source.getConnection(); PreparedStatement stmt = conn.prepareStatement(
-                    """
-                    SELECT username FROM nameToUUID WHERE sellerID = ?;
-                    """
-            )) {
-                stmt.setBytes(1, getUUIDBinary(uuid));
-                ResultSet resultSet = stmt.executeQuery();
-                boolean isFull = resultSet.next();
-                if (!isFull) { future.complete(uuid.toString()); return; } //if their username isn't in the database, return their uuid as a string
-                future.complete(resultSet.getString("username"));
-            } catch (Exception e) {
-                e.printStackTrace();
-                future.completeExceptionally(e);
-            }
+                    if (stockSum >= quantityToPurchase) {
+                        int surplusStock = stockSum - quantityToPurchase;
+                        double price = listing.getTotalPrice() - surplusStock * listing.getPricePer();
+
+                        if (surplusStock > 0) {
+                            listingForReinsertion = new Listing(
+                                    listing.getID(),
+                                    listing.getServerId(),
+                                    listing.getSellerID(),
+                                    marketID,
+                                    surplusStock,
+                                    listing.getPricePer()
+                            );
+                        }
+
+                        oldListings.add(listing.getID());
+                        purchasedListings.add(new PurchasedListing(listing.getSellerID(), listing.getServerId(), price));
+                        cost += price;
+                        break;
+                    }
+
+                    // still below the target, take whole listing
+                    oldListings.add(listing.getID());
+                    purchasedListings.add(new PurchasedListing(listing.getSellerID(), listing.getServerId(), listing.getTotalPrice()));
+                    cost += listing.getTotalPrice();
+                }
+                if (stockSum < quantityToPurchase) {
+                    future.completeExceptionally(new InsufficientStockException("There were not enough items on the market!"));
+                    return;
+                }
+                if (cost > maxPrice) {
+                    future.completeExceptionally(new ExceedsMaxPriceException("The price of the items would have been %s, greater than %s!".formatted(cost, maxPrice)));
+                    return;
+                }
+                Economy economy = PlayerShopOverhaul.getInstance().getEconomy();
+                // Use offline player here as 99% of the time, the player will still be online
+                // in the case, they are offline. We are in another thread, and hopefully it won't block main thread.
+                OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(buyerUUID);
+                EconomyResponse transaction = economy.withdrawPlayer(offlinePlayer, cost);
+                if (!transaction.transactionSuccess()) {
+                    future.complete(transaction);
+                    return;
+                }
+
+                PaymentStatements paymentStatements = handle.attach(PaymentStatements.class);
+                for (PurchasedListing purchasedListing : purchasedListings) {
+                    paymentStatements.insertPayment(purchasedListing.sellerID(), purchasedListing.serverID(), purchasedListing.toPay());
+                    LogStatements logStatements = handle.attach(LogStatements.class);
+                    logStatements.logPayment(buyerUUID, purchasedListing.sellerID(), quantityToPurchase, purchasedListing.toPay(), marketID);
+                }
+
+                int[] listingsToDelete = oldListings.stream().mapToInt(Integer::intValue).toArray();
+                if (listingsToDelete.length > 0) listingStatements.deleteListings(listingsToDelete);
+
+                if (listingForReinsertion != null) {
+                    MarketStatements marketStatements = handle.attach(MarketStatements.class);
+                    MarketDTO market = marketStatements.getMarketById(marketID);
+                    listingStatements.insertListing(
+                            listingForReinsertion.getSellerID(),
+                            listingForReinsertion.getServerId(),
+                            listingForReinsertion.getStock(),
+                            listingForReinsertion.getPricePer(),
+                            market.item()
+                    );
+                }
+                future.complete(transaction);
+            });
         });
         return future;
     }
 
-    @Override
-    public CompletableFuture<UUID> getUUID(String username) {
-        CompletableFuture<UUID> future = new CompletableFuture<>();
-        threads.submit(() -> {
-            try (Connection conn = source.getConnection(); PreparedStatement stmt = conn.prepareStatement(
-                    """
-                    SELECT sellerID FROM nameToUUID WHERE username = ?;
-                    """
-            )) {
-                stmt.setString(1, username);
-                ResultSet resultSet = stmt.executeQuery();
-                resultSet.next();
-                future.complete(fromUUIDBinary(resultSet.getBytes("sellerID")));
-            } catch (Exception e) {
-                e.printStackTrace();
-                future.completeExceptionally(e);
-            }
-        });
-        return future;
-    }
+    private record PurchasedListing(UUID sellerID, int serverID, double toPay) {}
 
     @Override
     public CompletableFuture<List<PricedMarket>> getMarkets(int offset) {
@@ -402,221 +329,81 @@ public class SQLStorage implements Storage {
     }
 
     @Override
-    public CompletableFuture<List<Listing>> getPlayerListings(UUID uuid, int serverID, int offset) {
-        CompletableFuture<List<Listing>> completableFuture = new CompletableFuture<>();
-        threads.submit(() -> {
-            try (Connection conn = source.getConnection(); PreparedStatement stmt = conn.prepareStatement(
-                    """
-                    SELECT * 
-                    FROM listings 
-                    WHERE sellerID = ? 
-                    AND serverID = ?
-                    LIMIT 21 OFFSET ?
-                    """
-            )) {
-                stmt.setBytes(1, getUUIDBinary(uuid));
-                stmt.setInt(2, serverID);
-                stmt.setInt(3, offset);
-                ResultSet resultSet = stmt.executeQuery();
-                List<Listing> listings = new ArrayList<>();
-                while (resultSet.next()) {
-                    int id = resultSet.getInt("id");
-                    int stock = resultSet.getInt("stock");
-                    double pricePer = resultSet.getDouble("pricePer");
-                    int marketID = resultSet.getInt("marketID");
-                    listings.add(new Listing(id, uuid, marketID, stock, pricePer));
-                }
-                completableFuture.complete(listings);
-            } catch (SQLException | IOException e) {
-                e.printStackTrace();
-            }
+    public CompletableFuture<List<PricedMarket>> getMarkets(int offset, String search) {
+        CompletableFuture<List<PricedMarket>> future = new CompletableFuture<>();
+        submitWithExceptionLogging(() -> {
+            List<PricedMarketStatements.PricedMarketDTO> pricedMarketDTOs = jdbi.inTransaction((handle) -> {
+                return handle.attach(PricedMarketStatements.class).getPricedMarkets(offset, '%' + search.toUpperCase() + '%');
+            });
+            future.complete(pricedMarketDTOs.stream().map(PricedMarketStatements.PricedMarketDTO::asPricedMarket).toList());
         });
-        return completableFuture;
+        return future;
     }
 
     @Override
-    public CompletableFuture<List<Market>> getMarkets(List<Listing> listings) {
-        CompletableFuture<List<Market>> completableFuture = new CompletableFuture<>();
-        if (listings.size() == 0) { completableFuture.complete(Collections.emptyList()); return completableFuture; }
-        threads.submit(() -> {
-            String rawStatement = """
-                SELECT markets.id, item, listings.id
-                FROM markets
-                JOIN listings ON markets.id = listings.marketID
-                WHERE listings.id IN %s;
-                """;
-            rawStatement = String.format(rawStatement, createSQLSet(listings.stream().map(Listing::getID).collect(Collectors.toList())));
-            try (Connection conn = source.getConnection(); PreparedStatement stmt = conn.prepareStatement(
-                    rawStatement
-            )) {
-                ResultSet resultSet = stmt.executeQuery();
-                Object[] objects = new Object[listings.size()];
-                for (int i = 0; i < objects.length; i++) {
-                    objects[i] = listings.get(i).getID();
-                }
-                while (resultSet.next()) {
-                    int marketID = resultSet.getInt(1);
-                    byte[] itemBytes = resultSet.getBytes(2);
-                    ItemStack item = ItemSerialization.binaryToItemStack(itemBytes);
-                    int listingID = resultSet.getInt(3);
-                    Market market = new Market(marketID, item);
-                    for (int i = 0; i < objects.length; i++) {
-                        if (objects[i].equals(listingID)) {
-                            objects[i] = market;
-                        }
-                    }
-                }
-                List<Market> markets = Arrays.stream(objects).map((object) -> (Market) object).toList();
-                completableFuture.complete(markets);
-            } catch (Exception e) {
-                e.printStackTrace();
-                completableFuture.completeExceptionally(e);
-            }
+    public CompletableFuture<Double> claimPayment(UUID uuid) {
+        CompletableFuture<Double> future = new CompletableFuture<>();
+        submitWithExceptionLogging(() -> {
+           jdbi.useTransaction((handle) -> {
+               PaymentStatements paymentStatements = handle.attach(PaymentStatements.class);
+               List<PaymentStatements.PaymentDTO> payments = paymentStatements.getPayments(uuid, configHandler.getServerID());
+               payments.stream().map(PaymentStatements.PaymentDTO::toPay).reduce(Double::sum).ifPresentOrElse((toPaySum) -> {
+                   OfflinePlayer player = Bukkit.getOfflinePlayer(uuid);
+                   EconomyResponse economyResponse = PlayerShopOverhaul.getInstance().getEconomy().depositPlayer(player, toPaySum);
+                   if (economyResponse.transactionSuccess()) {
+                       paymentStatements.deletePayments(payments.stream().mapToInt(PaymentStatements.PaymentDTO::id).toArray());
+                   }
+                   future.complete(toPaySum);
+               }, () -> future.complete(0.0));
+           });
         });
-        return completableFuture;
-    }
-
-    protected void depositPayment(UUID uuid, int serverID, double toPay) {
-        try (Connection conn = source.getConnection(); PreparedStatement stmt = conn.prepareStatement(
-                """
-                INSERT INTO payment(sellerID, serverID, toPay) VALUES(?, ?, ?);
-                """
-        )) {
-            stmt.setBytes(1, getUUIDBinary(uuid));
-            stmt.setInt(2, serverID);
-            stmt.setDouble(3, toPay);
-            stmt.execute();
-        } catch (SQLException | IOException e) {
-            e.printStackTrace();
-        }
+        return future;
     }
 
     @Override
-    public CompletableFuture<EconomyResponse> purchaseFromMarket(UUID uuid, Market market, int amount) {
-        CompletableFuture<EconomyResponse> completableFuture = new CompletableFuture<>();
-        threads.submit(() -> {
-            try (Connection conn = source.getConnection()) {
-                conn.setAutoCommit(false);
-                conn.createStatement().execute("START TRANSACTION;");
-                PreparedStatement stmt = conn.prepareStatement(
-                        """
-                        SELECT listings.id AS lid, sellerID, serverID, stock, pricePer FROM listings
-                        JOIN markets ON listings.marketID = markets.id
-                        WHERE markets.id = ?
-                        ORDER BY listings.pricePer ASC
-                        LIMIT ?
-                        FOR UPDATE;
-                        """
-                );
-                stmt.setInt(1, market.getID());
-                stmt.setInt(2, amount);
-                ResultSet resultSet = stmt.executeQuery();
-                int stockSum = 0;
-                double cost = 0;
-                List<Integer> forRemoval = new ArrayList<>();
-                List<SQLiteStorage.PurchasedListing> purchasedListings = new ArrayList<>();
-                Listing listingForReinsertion = null;
-                int serverIDForReinsertion = -1;
-                while (resultSet.next()) {
-                    if (stockSum > amount) break;
-                    int id = resultSet.getInt("lid");
-                    UUID sellerID = fromUUIDBinary(resultSet.getBytes("sellerID"));
-                    int stock = resultSet.getInt("stock");
-                    double pricePer = resultSet.getDouble("pricePer");
-                    int serverID = resultSet.getInt("serverID");
-                    stockSum += stock;
-                    double price = stock * pricePer;
-                    forRemoval.add(id);
-                    if (stockSum > amount) {
-                        price -= (stockSum - amount) * pricePer;
-                        listingForReinsertion = new Listing(id, sellerID, market.getID(), stockSum - amount, pricePer);
-                        serverIDForReinsertion = serverID;
-                    }
-                    purchasedListings.add(new SQLiteStorage.PurchasedListing(sellerID, serverID, price));
-                    cost += price;
-                }
-                if (stockSum < amount) {
-                    completableFuture.completeExceptionally(new IllegalStateException("There were not enough items on the market!"));
-                    stmt.execute("COMMIT;");
-                    return;
-                }
-                Economy economy = PlayerShopOverhaul.getInstance().getEconomy();
-                EconomyResponse transaction = economy.withdrawPlayer(Bukkit.getOfflinePlayer(uuid), cost);
-                if (!transaction.transactionSuccess()) {
-                    completableFuture.complete(transaction);
-                    return;
-                }
-                for (SQLiteStorage.PurchasedListing purchasedListing : purchasedListings) { //pay the people who put the listings up
-                    depositPayment(purchasedListing.sellerID(), purchasedListing.serverID(), purchasedListing.toPay());
-                }
-                StringJoiner joiner = new StringJoiner(",");
-                for (Integer integer : forRemoval) {
-                    joiner.add(String.valueOf(integer));
-                }
-                stmt.execute(String.format("""
-                DELETE FROM listings WHERE id IN (%s);
-                """, joiner));
-                if (listingForReinsertion != null) {
-                    PreparedStatement insert = conn.prepareStatement("INSERT INTO listings (sellerID, serverID, stock, pricePer, marketID) VALUES(?, ?, ?, ?, ?);");
-                    insert.setBytes(1, getUUIDBinary(listingForReinsertion.getSellerID()));
-                    insert.setInt(2, serverIDForReinsertion);
-                    insert.setInt(3, listingForReinsertion.getStock());
-                    insert.setDouble(4, listingForReinsertion.getPricePer());
-                    insert.setInt(5, market.getID());
-                    insert.execute();
-                }
-                completableFuture.complete(transaction);
-                stmt.execute("COMMIT;");
-            } catch (Exception e) {
-                completableFuture.completeExceptionally(e);
-                e.printStackTrace();
+    public void setUsername(UUID uuid, String name) {
+        submitWithExceptionLogging(() -> {
+            jdbi.useTransaction((handle) -> {
+                NameToUUIDStatements nameToUUIDStatements = handle.attach(NameToUUIDStatements.class);
+                nameToUUIDStatements.setUsername(uuid, name);
+            });
+        });
+    }
+
+    @Override
+    public CompletableFuture<String> getUsername(UUID uuid) {
+        CompletableFuture<String> future = new CompletableFuture<>();
+        submitWithExceptionLogging(() -> {
+            String username = jdbi.inTransaction((handle) -> {
+                NameToUUIDStatements nameToUUIDStatements = handle.attach(NameToUUIDStatements.class);
+                return nameToUUIDStatements.getUsername(uuid);
+            });
+            future.complete(username);
+        });
+        return future;
+    }
+
+    @Override
+    public CompletableFuture<UUID> getUUID(String username) {
+        CompletableFuture<UUID> future = new CompletableFuture<>();
+        submitWithExceptionLogging(() -> {
+            UUID uuid = jdbi.inTransaction((handle) -> {
+                NameToUUIDStatements nameToUUIDStatements = handle.attach(NameToUUIDStatements.class);
+                return nameToUUIDStatements.getUUID(username);
+            });
+            future.complete(uuid);
+        });
+        return future;
+    }
+
+    private void submitWithExceptionLogging(Runnable runnable) {
+        threads.execute(() -> {
+            try {
+                runnable.run();
+            } catch (Throwable t) {
+                PlayerShopOverhaul.getInstance().getLogger().log(Level.SEVERE, "Exception in async task", t);
+                throw t;
             }
         });
-        return completableFuture;
     }
-
-    public String createSQLSet(List<Integer> ints) {
-        StringJoiner joiner = new StringJoiner(",");
-        for (Integer integer : ints) {
-            joiner.add(String.valueOf(integer));
-        }
-        return "(" + joiner.toString() + ")";
-    }
-
-    byte[] getUUIDBinary(UUID uuid) throws IOException {
-        ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-        DataOutputStream dataOutputStream = new DataOutputStream(byteArrayOutputStream);
-        dataOutputStream.writeLong(uuid.getLeastSignificantBits());
-        dataOutputStream.writeLong(uuid.getMostSignificantBits());
-        byte[] uuidBytes = byteArrayOutputStream.toByteArray();
-        dataOutputStream.close();
-        return uuidBytes;
-    }
-
-    UUID fromUUIDBinary(byte[] uuidBinary) {
-        ByteBuffer bb = ByteBuffer.wrap(uuidBinary);
-        long low = bb.getLong();
-        long high = bb.getLong();
-        return new UUID(high, low);
-    }
-
-
-    public final class DatabaseSource {
-
-        private Connection connection = null;
-        private HikariDataSource source = null;
-
-        public DatabaseSource(HikariDataSource source) { //MySQL
-            this.source = source;
-        }
-
-        public DatabaseSource() {} //SQLite
-
-        public Connection getConnection() throws SQLException {
-            if (source != null) return source.getConnection();
-            else return DriverManager.getConnection("jdbc:sqlite:" + new File(PlayerShopOverhaul.getInstance().getDataFolder(), "gts.db").getAbsolutePath());
-        }
-    }
-
-    protected static record PurchasedListing(UUID sellerID, int serverID, double toPay) {}
 }

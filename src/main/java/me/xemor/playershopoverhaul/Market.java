@@ -4,8 +4,8 @@ import org.bukkit.inventory.ItemStack;
 
 public class Market {
 
-    final int marketID;
-    final ItemStack item;
+    private final int marketID;
+    private final ItemStack item;
 
     public Market(int marketID, ItemStack item) {
         this.marketID = marketID;
@@ -26,5 +26,9 @@ public class Market {
 
     public static String getName(ItemStack item) {
         return item.hasItemMeta() && item.getItemMeta().hasDisplayName() ? item.getItemMeta().getDisplayName() : PlayerShopOverhaul.getInstance().getConfigHandler().getListingName(item.getType().name());
+    }
+
+    public int getMarketID() {
+        return marketID;
     }
 }

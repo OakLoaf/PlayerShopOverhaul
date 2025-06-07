@@ -3,6 +3,7 @@
 #the correct server when using this
 #plugin across multiple servers
 serverID: 1
+upperPriceMultiplier: 1.1
 
 database:
   type: "SQLite"
@@ -15,3 +16,4 @@ database:
 gts-command-aliases:
   - "globaltradesystem"
   - "auctionhouse"
+  - "ah"

@@ -17,7 +17,7 @@ public class HelpCommand implements SubCommand {
                 return;
             }
 
-            instance.getBukkitAudiences().sender(sender).sendMessage(instance.getConfigHandler().getHelpMessage());
+            sender.sendMessage(instance.getConfigHandler().getHelpMessage());
         }
     }
 

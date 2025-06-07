@@ -20,18 +20,12 @@ public class CacheStorage implements Storage {
     private final LRUCache<UUID, CompletableFuture<String>> usernames = new LRUCache<>(3);
     private final LRUCache<String, CompletableFuture<UUID>> uuids = new LRUCache<>(10);
 
-
     public CacheStorage(Storage storage) {
         this.storage = storage;
     }
 
     @Override
-    public void setup() {
-        storage.setup();
-    }
-
-    @Override
-    public void registerListing(UUID uuid, ItemStack item, int stock, double pricePer) {
+    public void registerListing(UUID uuid, ItemStack item, int stock, double pricePer) throws ItemTooLargeException {
         storage.registerListing(uuid, item, stock, pricePer);
     }
 
@@ -71,8 +65,13 @@ public class CacheStorage implements Storage {
     }
 
     @Override
-    public CompletableFuture<EconomyResponse> purchaseFromMarket(UUID uuid, Market market, int amount) {
-        return storage.purchaseFromMarket(uuid, market, amount);
+    public CompletableFuture<Double> costToPurchaseAmountFromMarket(int marketID, int amount) {
+        return storage.costToPurchaseAmountFromMarket(marketID, amount);
+    }
+
+    @Override
+    public CompletableFuture<EconomyResponse> purchaseFromMarket(UUID uuid, int marketID, int amount, double maxPrice) {
+        return storage.purchaseFromMarket(uuid, marketID, amount, maxPrice);
     }
 
     @Override

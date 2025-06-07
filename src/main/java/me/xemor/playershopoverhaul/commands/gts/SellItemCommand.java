@@ -2,6 +2,8 @@ package me.xemor.playershopoverhaul.commands.gts;
 
 import me.xemor.playershopoverhaul.commands.SubCommand;
 import me.xemor.playershopoverhaul.PlayerShopOverhaul;
+import me.xemor.playershopoverhaul.storage.ItemTooLargeException;
+import org.bukkit.ChatColor;
 import org.bukkit.Material;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -14,20 +16,28 @@ public class SellItemCommand implements SubCommand {
 
     @Override
     public void onCommand(CommandSender sender, String[] args) {
-        if (sender instanceof Player && sender.hasPermission("playershopoverhaul.gts.sell")) {
+        if (sender instanceof Player player && sender.hasPermission("playershopoverhaul.gts.sell")) {
             if (!PlayerShopOverhaul.getInstance().isGtsEnabled()) {
                 sender.sendMessage(PlayerShopOverhaul.getInstance().getConfigHandler().getGtsDisabledMessage());
                 return;
             }
 
-            Player player = (Player) sender;
             if (args.length == 2) {
                 ItemStack itemInMainHand = player.getInventory().getItemInMainHand();
                 if (itemInMainHand.getType() != Material.AIR) {
                     double pricePer = Double.parseDouble(args[1]) / itemInMainHand.getAmount();
-                    PlayerShopOverhaul.getInstance().getBukkitAudiences().sender(sender)
-                            .sendMessage(PlayerShopOverhaul.getInstance().getConfigHandler().getSoldMessage(pricePer));
-                    PlayerShopOverhaul.getInstance().getGlobalTradeSystem().getStorage().registerListing(player.getUniqueId(), itemInMainHand, itemInMainHand.getAmount(), pricePer);
+                    sender.sendMessage(PlayerShopOverhaul.getInstance().getConfigHandler().getSoldMessage(pricePer));
+                    try {
+                        PlayerShopOverhaul.getInstance().getGlobalTradeSystem().getStorage().registerListing(
+                                player.getUniqueId(),
+                                itemInMainHand.clone(),
+                                itemInMainHand.getAmount(),
+                                pricePer
+                        );
+                    } catch (ItemTooLargeException e) {
+                        sender.sendMessage(ChatColor.RED + "That item is too large to be stored in the global trade system!");
+                        return;
+                    }
                     itemInMainHand.setAmount(0);
                 }
             }

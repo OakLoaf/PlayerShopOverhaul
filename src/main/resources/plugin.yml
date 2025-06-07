@@ -3,14 +3,28 @@ version: ${project.version}
 main: me.xemor.playershopoverhaul.PlayerShopOverhaul
 api-version: 1.17
 authors: [ Xemor_ ]
-description: Adds the global trade system 
+description: Adds the global trade system
+folia-supported: true
 commands:
+  gts:
+    usage: /gts
+    description: The command for users to open the GTS
   pso:
     usage: /pso
     description: The admin commands of PlayerShopOverhaul
     aliases: ["playershopoverhaul"]
+libraries:
+  - "mysql:mysql-connector-java:8.0.29"
+  - "org.xerial:sqlite-jdbc:3.36.0.3"
+  - "org.jdbi:jdbi3-sqlobject:3.43.0"
+  - "org.jdbi:jdbi3-core:3.43.0"
+  - "com.h2database:h2:2.2.224"
+  - "com.fasterxml.jackson.core:jackson-core:2.18.0"
+  - "com.fasterxml.jackson.core:jackson-databind:2.18.2"
+  - "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.7.0"
 depend:
   - Vault
+  - ProtocolLib
 softdepend:
   - PlaceholderAPI
 permissions:

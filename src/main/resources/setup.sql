@@ -1,7 +1,7 @@
 CREATE TABLE IF NOT EXISTS markets
 (
     id INTEGER PRIMARY KEY AUTO_INCREMENT,
-    item MEDIUMBLOB NOT NULL /*UNIQUE*/,
+    item VARBINARY(65500) NOT NULL UNIQUE,
     name TEXT NOT NULL
 );
 |
@@ -26,6 +26,9 @@ CREATE TABLE IF NOT EXISTS payment
 );
 |
 CREATE TABLE IF NOT EXISTS log
+    @SqlQuery
+(
+    "INSERT INTO log (sellerID, buyerID, amountPurchased, amountPaid, marketID) VALUES (:sellerID, :buyerID, :amountPurchased, :amountPaid, :marketID)")
 (
     id INTEGER PRIMARY KEY AUTO_INCREMENT,
     sellerID BINARY(16) NOT NULL,
@@ -37,6 +40,6 @@ CREATE TABLE IF NOT EXISTS log
 |
 CREATE TABLE IF NOT EXISTS nameToUUID
 (
-    sellerID BINARY(16) PRIMARY KEY,
+    uuid BINARY(16) PRIMARY KEY,
     username CHAR(17) UNIQUE
 );

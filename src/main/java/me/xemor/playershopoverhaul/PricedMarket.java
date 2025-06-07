@@ -1,6 +1,7 @@
 package me.xemor.playershopoverhaul;
 
 import me.clip.placeholderapi.PlaceholderAPI;
+import me.xemor.playershopoverhaul.configuration.ConfigHandler;
 import me.xemor.playershopoverhaul.userinterface.GlobalTradeSystem;
 import org.bukkit.Bukkit;
 import org.bukkit.inventory.ItemStack;
@@ -10,14 +11,13 @@ import org.bukkit.persistence.PersistentDataType;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 
 public class PricedMarket extends Market implements Comparable<PricedMarket>  {
 
     private final double goingPrice;
     private final UUID goingPriceSeller;
     private int stock = 0;
-    private static Pattern matchPlaceholders = Pattern.compile("%(.*?)%");
+    private static final Pattern matchPlaceholders = Pattern.compile("%(.*?)%");
 
     public PricedMarket(int marketID, ItemStack item, double goingPrice, UUID goingPriceSeller, int stock) {
         super(marketID, item);
@@ -40,7 +40,7 @@ public class PricedMarket extends Market implements Comparable<PricedMarket>  {
     }
 
     public MarketRepresentation getMarketRepresentation() {
-        ItemStack representation = item.clone();
+        ItemStack representation = getItem().clone();
         ConfigHandler configHandler = PlayerShopOverhaul.getInstance().getConfigHandler();
         ItemMeta itemMeta = representation.getItemMeta();
         if (itemMeta == null) itemMeta = Bukkit.getItemFactory().getItemMeta(representation.getType());
@@ -49,7 +49,7 @@ public class PricedMarket extends Market implements Comparable<PricedMarket>  {
         itemMeta.getPersistentDataContainer().set(
                 GlobalTradeSystem.getMarketIDKey(),
                 PersistentDataType.INTEGER,
-                marketID);
+                getMarketID());
         itemMeta.getPersistentDataContainer().set(
                 GlobalTradeSystem.getPriceKey(),
                 PersistentDataType.DOUBLE,
@@ -86,6 +86,6 @@ public class PricedMarket extends Market implements Comparable<PricedMarket>  {
 
     @Override
     public int compareTo(PricedMarket o) {
-        return item.getType().compareTo(o.item.getType());
+        return getItem().getType().compareTo(o.getItem().getType());
     }
 }
