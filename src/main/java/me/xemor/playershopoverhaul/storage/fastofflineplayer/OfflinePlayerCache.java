@@ -1,20 +1,13 @@
 package me.xemor.playershopoverhaul.storage.fastofflineplayer;
 
-import com.destroystokyo.paper.profile.PlayerProfile;
 import com.mysql.cj.util.LRUCache;
-import io.papermc.paper.persistence.PersistentDataContainerView;
-import me.xemor.playershopoverhaul.PlayerShopOverhaul;
+import jakarta.inject.Inject;
+import me.xemor.playershopoverhaul.storage.Storage;
 import org.bukkit.*;
-import org.bukkit.entity.EntityType;
 import org.bukkit.entity.Player;
-import org.jetbrains.annotations.NotNull;
-import org.jetbrains.annotations.Nullable;
 
 import java.lang.reflect.Method;
-import java.time.Duration;
-import java.time.Instant;
 import java.util.Collections;
-import java.util.Date;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -22,6 +15,9 @@ import java.util.concurrent.CompletableFuture;
 public class OfflinePlayerCache {
 
     private final Map<UUID, OfflinePlayer> offlinePlayerCache = Collections.synchronizedMap(new LRUCache<>(42));
+
+    @Inject
+    private Storage storage;
 
     public CompletableFuture<OfflinePlayer> getOfflinePlayer(UUID uuid) {
         Player onlinePlayer = Bukkit.getPlayer(uuid);
@@ -42,7 +38,7 @@ public class OfflinePlayerCache {
 
     private CompletableFuture<OfflinePlayer> computeOfflinePlayer(UUID uuid) {
         CompletableFuture<OfflinePlayer> completableFuture = new CompletableFuture<>();
-        PlayerShopOverhaul.getInstance().getGlobalTradeSystem().getStorage().getUsername(uuid).thenAccept((name) -> {
+        storage.getUsername(uuid).thenAccept((name) -> {
             InterfaceMock.MethodOverride nameOverride = new InterfaceMock.MethodOverride() {
                 @Override
                 public boolean overrides(Method method) {

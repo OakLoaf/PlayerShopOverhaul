@@ -1,5 +1,7 @@
 package me.xemor.playershopoverhaul.storage;
 
+import com.google.inject.Inject;
+import com.google.inject.Singleton;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import me.xemor.playershopoverhaul.*;
@@ -15,7 +17,6 @@ import org.bukkit.OfflinePlayer;
 import org.bukkit.inventory.ItemStack;
 import org.jdbi.v3.core.Handle;
 import org.jdbi.v3.core.Jdbi;
-import org.jdbi.v3.core.argument.Arguments;
 import org.jdbi.v3.sqlobject.SqlObjectPlugin;
 
 import java.io.BufferedReader;
@@ -30,14 +31,24 @@ import java.util.concurrent.*;
 import java.util.logging.Level;
 import java.util.stream.Collectors;
 
+@Singleton
 public class SQLStorage implements Storage {
 
     private final ConfigHandler configHandler;
+    private final PlayerShopOverhaul playerShopOverhaul;
     private final ExecutorService threads;
     private Jdbi jdbi;
+    private Economy economy;
 
-    public SQLStorage(ConfigHandler configHandler) {
+    @Inject
+    public SQLStorage(
+            PlayerShopOverhaul playerShopOverhaul,
+            ConfigHandler configHandler,
+            Economy economy
+    ) {
         this.configHandler = configHandler;
+        this.playerShopOverhaul = playerShopOverhaul;
+        this.economy = economy;
         threads = new ThreadPoolExecutor(1, 8,
                 60L, TimeUnit.SECONDS,
                 new LinkedBlockingQueue<>(),
@@ -48,7 +59,7 @@ public class SQLStorage implements Storage {
                     public Thread newThread(Runnable r) {
                         Thread thread = defaultFactory.newThread(r);
                         thread.setUncaughtExceptionHandler((t, e) ->
-                                PlayerShopOverhaul.getInstance().getLogger().log(Level.SEVERE, "Uncaught exception in thread " + t.getName(), e)
+                                playerShopOverhaul.getLogger().log(Level.SEVERE, "Uncaught exception in thread " + t.getName(), e)
                         );
                         return thread;
                     }
@@ -86,7 +97,7 @@ public class SQLStorage implements Storage {
         Properties props = new Properties();
         props.setProperty("dataSourceClassName", "org.h2.jdbcx.JdbcDataSource");
         props.setProperty("dataSource.url", "jdbc:h2:file:%s;MODE=MySQL;DATABASE_TO_UPPER=false;AUTO_SERVER=TRUE".formatted(
-                PlayerShopOverhaul.getInstance().getDataFolder().getAbsolutePath() + "/database.db"
+                playerShopOverhaul.getDataFolder().getAbsolutePath() + "/database.db"
         ));
         props.setProperty("dataSource.user", "sa"); // default H2 user
         props.setProperty("dataSource.password", ""); // default H2 password
@@ -98,7 +109,7 @@ public class SQLStorage implements Storage {
         try (InputStream in = getClass().getClassLoader().getResourceAsStream(fileName)) {
             setup = new BufferedReader(new InputStreamReader(in)).lines().collect(Collectors.joining(""));
         } catch (IOException e) {
-            PlayerShopOverhaul.getInstance().getLogger().log(Level.SEVERE, "Could not read db setup file.", e);
+            playerShopOverhaul.getLogger().log(Level.SEVERE, "Could not read db setup file.", e);
             e.printStackTrace();
             return;
         }
@@ -108,7 +119,7 @@ public class SQLStorage implements Storage {
                 handle.execute(str);
             }
         }
-        PlayerShopOverhaul.getInstance().getLogger().info("Database setup complete.");
+        playerShopOverhaul.getLogger().info("Database setup complete.");
     }
 
     @Override
@@ -122,7 +133,7 @@ public class SQLStorage implements Storage {
         submitWithExceptionLogging(() -> {
             int serverID = configHandler.getServerID();
             jdbi.useTransaction((handle) -> {
-                handle.attach(MarketStatements.class).insertOrReplaceMarket(serializedItem, Market.getName(item));
+                handle.attach(MarketStatements.class).insertOrReplaceMarket(serializedItem, PricedMarket.getName(configHandler, item));
                 handle.attach(ListingStatements.class).insertListing(uuid, serverID, stock, pricePer, serializedItem);
             });
         });
@@ -284,7 +295,6 @@ public class SQLStorage implements Storage {
                     future.completeExceptionally(new ExceedsMaxPriceException("The price of the items would have been %s, greater than %s!".formatted(cost, maxPrice)));
                     return;
                 }
-                Economy economy = PlayerShopOverhaul.getInstance().getEconomy();
                 // Use offline player here as 99% of the time, the player will still be online
                 // in the case, they are offline. We are in another thread, and hopefully it won't block main thread.
                 OfflinePlayer offlinePlayer = Bukkit.getOfflinePlayer(buyerUUID);
@@ -349,7 +359,7 @@ public class SQLStorage implements Storage {
                List<PaymentStatements.PaymentDTO> payments = paymentStatements.getPayments(uuid, configHandler.getServerID());
                payments.stream().map(PaymentStatements.PaymentDTO::toPay).reduce(Double::sum).ifPresentOrElse((toPaySum) -> {
                    OfflinePlayer player = Bukkit.getOfflinePlayer(uuid);
-                   EconomyResponse economyResponse = PlayerShopOverhaul.getInstance().getEconomy().depositPlayer(player, toPaySum);
+                   EconomyResponse economyResponse = economy.depositPlayer(player, toPaySum);
                    if (economyResponse.transactionSuccess()) {
                        paymentStatements.deletePayments(payments.stream().mapToInt(PaymentStatements.PaymentDTO::id).toArray());
                    }
@@ -401,7 +411,7 @@ public class SQLStorage implements Storage {
             try {
                 runnable.run();
             } catch (Throwable t) {
-                PlayerShopOverhaul.getInstance().getLogger().log(Level.SEVERE, "Exception in async task", t);
+                playerShopOverhaul.getLogger().log(Level.SEVERE, "Exception in async task", t);
                 throw t;
             }
         });

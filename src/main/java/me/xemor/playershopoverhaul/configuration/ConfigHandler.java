@@ -2,6 +2,8 @@ package me.xemor.playershopoverhaul.configuration;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
+import com.google.inject.Inject;
+import com.google.inject.Singleton;
 import me.xemor.configurationdata.ConfigurationData;
 import me.xemor.playershopoverhaul.PlayerShopOverhaul;
 import net.kyori.adventure.text.Component;
@@ -16,8 +18,10 @@ import java.io.IOException;
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Singleton
 public class ConfigHandler {
 
+    private PlayerShopOverhaul playerShopOverhaul;
     private final LegacyComponentSerializer legacySerializer = LegacyComponentSerializer.builder().useUnusualXRepeatedCharacterHexFormat().hexColors().build();
     private int serverID;
     private double upperPriceMultiplier;
@@ -30,15 +34,17 @@ public class ConfigHandler {
     private List<String> gtsCommandAliases;
     private LanguageConfig languageConfig;
 
-    public ConfigHandler() {
+    @Inject
+    public ConfigHandler(PlayerShopOverhaul playerShopOverhaul) {
+        this.playerShopOverhaul = playerShopOverhaul;
         reloadConfig();
     }
 
     public void reloadConfig() {
-        PlayerShopOverhaul.getInstance().saveDefaultConfig();
-        FileConfiguration config = PlayerShopOverhaul.getInstance().getConfig();
-        PlayerShopOverhaul.getInstance().saveResource("language.yml", false);
-        File languageFile = new File(PlayerShopOverhaul.getInstance().getDataFolder(), "language.yml");
+        playerShopOverhaul.saveDefaultConfig();
+        FileConfiguration config = playerShopOverhaul.getConfig();
+        playerShopOverhaul.saveResource("language.yml", false);
+        File languageFile = new File(playerShopOverhaul.getDataFolder(), "language.yml");
         this.serverID = config.getInt("serverID");
         this.upperPriceMultiplier = config.getDouble("upperPriceMultiplier", 1.1);
         this.databaseType = config.getString("database.type", "SQLite");

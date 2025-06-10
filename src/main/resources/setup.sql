@@ -26,9 +26,6 @@ CREATE TABLE IF NOT EXISTS payment
 );
 |
 CREATE TABLE IF NOT EXISTS log
-    @SqlQuery
-(
-    "INSERT INTO log (sellerID, buyerID, amountPurchased, amountPaid, marketID) VALUES (:sellerID, :buyerID, :amountPurchased, :amountPaid, :marketID)")
 (
     id INTEGER PRIMARY KEY AUTO_INCREMENT,
     sellerID BINARY(16) NOT NULL,

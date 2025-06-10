@@ -39,6 +39,7 @@ dependencies {
     compileOnly("com.h2database:h2:2.2.224")
     implementation("io.github.revxrsal:lamp.common:4.0.0-rc.12")
     implementation("io.github.revxrsal:lamp.bukkit:4.0.0-rc.12")
+    implementation("com.google.inject:guice:7.0.0")
     implementation("me.xemor:configurationdata:4.4.1")
     implementation("me.xemor:foliahacks:1.7.5")
     implementation("space.arim.morepaperlib:morepaperlib:0.4.3")
@@ -63,6 +64,9 @@ tasks {
         }
 
         archiveFileName.set("${project.name}-${project.version}.jar")
+        relocate("io.github.revxrsal.lamp", "me.xemor.playershopoverhaul.lamp")
+        relocate("com.google.inject", "me.xemor.playershopoverhaul.guice")
+        relocate("me.xemor:userinterfaces", "me.xemor.playershopoverhaul.userinterfaces")
     }
 
     processResources{

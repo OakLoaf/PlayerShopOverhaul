@@ -1,9 +1,14 @@
 package me.xemor.playershopoverhaul.userinterface;
 
+import com.google.inject.Inject;
+import com.google.inject.Singleton;
+import me.clip.placeholderapi.PlaceholderAPI;
+import me.xemor.foliahacks.FoliaHacks;
 import me.xemor.playershopoverhaul.*;
 import me.xemor.playershopoverhaul.configuration.ConfigHandler;
 import me.xemor.playershopoverhaul.storage.SQLStorage;
 import me.xemor.playershopoverhaul.storage.Storage;
+import me.xemor.playershopoverhaul.storage.fastofflineplayer.OfflinePlayerCache;
 import me.xemor.userinterface.ChestInterface;
 import me.xemor.userinterface.textinterface.TextInterface;
 import org.bukkit.*;
@@ -14,14 +19,17 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 import org.bukkit.persistence.PersistentDataType;
 
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.regex.Pattern;
 
+@Singleton
 public class GlobalTradeSystem implements Listener {
 
+    private final PlayerShopOverhaul playerShopOverhaul;
+    private final ConfigHandler configHandler;
+    private final FoliaHacks foliaHacks;
+    private final OfflinePlayerCache offlinePlayerCache;
     private static NamespacedKey marketIDKey;
     private static NamespacedKey listingsIDKey;
     private static NamespacedKey priceKey;
@@ -29,26 +37,81 @@ public class GlobalTradeSystem implements Listener {
     private final Storage storage;
     private final static ItemStack air = new ItemStack(Material.AIR);
     private final ItemPurchaseView itemPurchaseView;
+    private static final Pattern matchPlaceholders = Pattern.compile("%(.*?)%");
 
-    public GlobalTradeSystem() {
-        marketIDKey = new NamespacedKey(PlayerShopOverhaul.getInstance(), "marketID");
-        listingsIDKey = new NamespacedKey(PlayerShopOverhaul.getInstance(), "listingsID");
-        priceKey =new NamespacedKey(PlayerShopOverhaul.getInstance(), "price");
+    @Inject
+    public GlobalTradeSystem(
+            PlayerShopOverhaul playerShopOverhaul,
+            ConfigHandler configHandler,
+            FoliaHacks foliaHacks,
+            OfflinePlayerCache offlinePlayerCache,
+            Storage storage,
+            ItemPurchaseView itemPurchaseView
+    ) {
+        this.playerShopOverhaul = playerShopOverhaul;
+        this.configHandler = configHandler;
+        this.foliaHacks = foliaHacks;
+        this.offlinePlayerCache = offlinePlayerCache;
+        this.storage = storage;
+        this.itemPurchaseView = itemPurchaseView;
+        marketIDKey = new NamespacedKey(playerShopOverhaul, "marketID");
+        listingsIDKey = new NamespacedKey(playerShopOverhaul, "listingsID");
+        priceKey = new NamespacedKey(playerShopOverhaul, "price");
         textInterface.title("Search");
-        ConfigHandler configHandler = PlayerShopOverhaul.getInstance().getConfigHandler();
-        // TODO: turn cache back on
-        storage = new SQLStorage(configHandler);
-        itemPurchaseView = new ItemPurchaseView(configHandler);
+    }
+
+    public MarketRepresentation getMarketRepresentation(PricedMarket pricedMarket) {
+        ItemStack representation = pricedMarket.getItem().clone();
+        ItemMeta itemMeta = representation.getItemMeta();
+        if (itemMeta == null) itemMeta = Bukkit.getItemFactory().getItemMeta(representation.getType());
+        String name = PricedMarket.getName(configHandler, pricedMarket.getItem());
+        List<String> lore = new ArrayList<>(configHandler.getListingLore(pricedMarket.getGoingPrice(), pricedMarket.getStock()));
+        itemMeta.getPersistentDataContainer().set(
+                GlobalTradeSystem.getMarketIDKey(),
+                PersistentDataType.INTEGER,
+                pricedMarket.getMarketID()
+        );
+        itemMeta.getPersistentDataContainer().set(
+                GlobalTradeSystem.getPriceKey(),
+                PersistentDataType.DOUBLE,
+                pricedMarket.getGoingPrice()
+        );
+        CompletableFuture<ItemStack> finishedItemStack = new CompletableFuture<>();
+        if (playerShopOverhaul.hasPlaceholderAPI()) {
+            String loadingDisplayName = matchPlaceholders.matcher(name).replaceAll("Loading...");
+            List<String> loadingLore = lore.stream().map((line) -> matchPlaceholders.matcher(line).replaceAll("Loading...")).toList();
+            ItemMeta finalItemMeta = itemMeta;
+            offlinePlayerCache.getOfflinePlayer(pricedMarket.getGoingPriceSeller()).thenAccept((offlinePlayer -> {
+                Bukkit.getScheduler().runTask(playerShopOverhaul, () -> {
+                    String placeholderedDisplayName = PlaceholderAPI.setPlaceholders(offlinePlayer, name);
+                    List<String> placeholderedLore = PlaceholderAPI.setPlaceholders(offlinePlayer, lore);
+                    finalItemMeta.setDisplayName(placeholderedDisplayName);
+                    finalItemMeta.setLore(placeholderedLore);
+                    representation.setItemMeta(finalItemMeta);
+                    finishedItemStack.complete(representation);
+                });
+            }));
+            itemMeta.setDisplayName(loadingDisplayName);
+            itemMeta.setLore(loadingLore);
+            representation.setItemMeta(itemMeta);
+        }
+        else {
+            itemMeta.setDisplayName(name);
+            itemMeta.setLore(lore);
+            representation.setItemMeta(itemMeta);
+            finishedItemStack.complete(representation);
+        }
+        return new MarketRepresentation(representation, finishedItemStack);
     }
 
     public void showTradeSystemView(Player player) {
-        ChestInterface<GTSData> chestInterface = new ChestInterface<>(PlayerShopOverhaul.getInstance().getConfigHandler().getGuiTitle(), 5, new GTSData("", 0));
+        ChestInterface<GTSData> chestInterface = new ChestInterface<>(configHandler.getGuiTitle(), 5, new GTSData("", 0));
         GTSData data = chestInterface.getInteractions().getData();
-        ItemStack search = PlayerShopOverhaul.getInstance().getConfigHandler().getSearch();
-        ItemStack myListings = PlayerShopOverhaul.getInstance().getConfigHandler().getListings();
-        ItemStack forwardArrow = PlayerShopOverhaul.getInstance().getConfigHandler().getForwardArrow();
-        ItemStack backArrow = PlayerShopOverhaul.getInstance().getConfigHandler().getBackArrow();
-        ItemStack refresh = PlayerShopOverhaul.getInstance().getConfigHandler().getRefresh();
+        ItemStack search = configHandler.getSearch();
+        ItemStack myListings = configHandler.getListings();
+        ItemStack forwardArrow = configHandler.getForwardArrow();
+        ItemStack backArrow = configHandler.getBackArrow();
+        ItemStack refresh = configHandler.getRefresh();
         chestInterface.calculateInventoryContents(
                 new String[] {
                         "    R    ",
@@ -67,15 +130,15 @@ public class GlobalTradeSystem implements Listener {
             if (data.getPageNumber() > 0) data.setPageNumber(data.getPageNumber() - 1);
             updateTradeSystemView(player, chestInterface);
         });
-        chestInterface.getInteractions().addSimpleInteraction(myListings, (otherPlayer) -> showListings(otherPlayer, otherPlayer.getUniqueId(), PlayerShopOverhaul.getInstance().getConfigHandler().getServerID()));
+        chestInterface.getInteractions().addSimpleInteraction(myListings, (otherPlayer) -> showListings(otherPlayer, otherPlayer.getUniqueId(), configHandler.getServerID()));
         chestInterface.getInteractions().addSimpleInteraction(refresh, this::showTradeSystemView);
         chestInterface.getInteractions().addSimpleInteraction(search, (otherPlayer) -> {
             player.closeInventory();
-            PlayerShopOverhaul.getInstance().getScheduling().entitySpecificScheduler(otherPlayer)
+            foliaHacks.getScheduling().entitySpecificScheduler(otherPlayer)
                     .runDelayed(() -> {
                         textInterface.getInput(otherPlayer, (result) -> {
                             data.setCurrentSearch(result);
-                            PlayerShopOverhaul.getInstance().getFoliaHacks()
+                            foliaHacks
                                     .runASAP(otherPlayer, () -> updateTradeSystemView(otherPlayer, chestInterface));
                         });
                     }, () -> {}, 2L);
@@ -87,8 +150,8 @@ public class GlobalTradeSystem implements Listener {
                 (clickPlayer, item, clickType) -> {
                     int marketID = item.getItemMeta().getPersistentDataContainer().get(marketIDKey, PersistentDataType.INTEGER);
                     storage.getPricedMarket(marketID).thenAccept((market) -> {
-                        PlayerShopOverhaul.getInstance().getFoliaHacks().runASAP(clickPlayer, () -> {
-                            itemPurchaseView.displayItemPurchaseView(clickPlayer, market);
+                        foliaHacks.runASAP(clickPlayer, () -> {
+                            itemPurchaseView.displayItemPurchaseView(clickPlayer, market, this::showTradeSystemView);
                         });
                     });
                 }
@@ -108,16 +171,16 @@ public class GlobalTradeSystem implements Listener {
         int offset = 21 * page;
         CompletableFuture<List<PricedMarket>> marketsFuture = storage.getMarkets(offset, search);
         marketsFuture.thenAccept((markets) -> {
-            PlayerShopOverhaul.getInstance().getFoliaHacks().runASAP(player, () -> {
+            foliaHacks.runASAP(player, () -> {
                 assert markets.size() <= 21;
                 for (int i = 0; i < 21; i++) { //markets.size() should be 21 in all circumstances as a page has 21 items on it
                     int index = i + 10 + (i / 7) * 2;
                     if (i < markets.size()) {
                         PricedMarket pricedMarket = markets.get(i);
-                        PricedMarket.MarketRepresentation representation = pricedMarket.getMarketRepresentation();
+                        MarketRepresentation representation = getMarketRepresentation(pricedMarket);
                         inventory.setItem(index, representation.instant());
                         representation.finished().thenAccept((finished) -> {
-                            Bukkit.getScheduler().runTask(PlayerShopOverhaul.getInstance(), () -> {
+                            Bukkit.getScheduler().runTask(playerShopOverhaul, () -> {
                                 inventory.setItem(index, finished);
                             });
                         });
@@ -138,9 +201,9 @@ public class GlobalTradeSystem implements Listener {
     }
 
     private void updateListingsView(Player player, UUID dataUUID, int serverID, ChestInterface<GTSData> chestInterface) {
-        ItemStack forwardArrow = PlayerShopOverhaul.getInstance().getConfigHandler().getForwardArrow();
-        ItemStack backArrow = PlayerShopOverhaul.getInstance().getConfigHandler().getBackArrow();
-        ItemStack backButton = PlayerShopOverhaul.getInstance().getConfigHandler().getMenuBackButton();
+        ItemStack forwardArrow = configHandler.getForwardArrow();
+        ItemStack backArrow = configHandler.getBackArrow();
+        ItemStack backButton = configHandler.getMenuBackButton();
         GTSData data = chestInterface.getInteractions().getData();
         chestInterface.getInteractions().addSimpleInteraction(forwardArrow, (otherPlayer) -> {
             if (chestInterface.getInventory().getItem(10) != null) data.setPageNumber(data.getPageNumber() + 1);
@@ -189,7 +252,7 @@ public class GlobalTradeSystem implements Listener {
         CompletableFuture<List<Listing>> listingsFuture = storage.getPlayerListings(dataUUID, serverID, 21 * data.getPageNumber());
         listingsFuture.thenAccept((listings) -> {
             storage.getMarkets(listings).thenAccept((markets) -> {
-                PlayerShopOverhaul.getInstance().getFoliaHacks().runASAP(player,
+                foliaHacks.runASAP(player,
                         () -> {
                             Inventory inventory = chestInterface.getInventory();
                             for (int i = 0; i < 21; i++) {
@@ -214,7 +277,6 @@ public class GlobalTradeSystem implements Listener {
     }
 
     public CompletableFuture<Double> claimPayment(Player player) {
-        Storage storage = PlayerShopOverhaul.getInstance().getGlobalTradeSystem().getStorage();
         return storage.claimPayment(player.getUniqueId());
     }
 
@@ -230,7 +292,5 @@ public class GlobalTradeSystem implements Listener {
         return priceKey;
     }
 
-    public Storage getStorage() {
-        return storage;
-    }
+    public record MarketRepresentation(ItemStack instant, CompletableFuture<ItemStack> finished) {}
 }

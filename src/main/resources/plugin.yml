@@ -6,9 +6,6 @@ authors: [ Xemor_ ]
 description: Adds the global trade system
 folia-supported: true
 commands:
-  gts:
-    usage: /gts
-    description: The command for users to open the GTS
   pso:
     usage: /pso
     description: The admin commands of PlayerShopOverhaul

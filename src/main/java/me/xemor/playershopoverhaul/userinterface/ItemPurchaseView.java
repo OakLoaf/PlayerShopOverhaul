@@ -1,11 +1,14 @@
 package me.xemor.playershopoverhaul.userinterface;
 
+import com.google.inject.Inject;
+import me.xemor.foliahacks.FoliaHacks;
 import me.xemor.playershopoverhaul.PlayerShopOverhaul;
 import me.xemor.playershopoverhaul.PricedMarket;
 import me.xemor.playershopoverhaul.configuration.ConfigHandler;
 import me.xemor.playershopoverhaul.configuration.LanguageConfig;
 import me.xemor.playershopoverhaul.storage.ExceedsMaxPriceException;
 import me.xemor.playershopoverhaul.storage.InsufficientStockException;
+import me.xemor.playershopoverhaul.storage.Storage;
 import me.xemor.userinterface.ChestInterface;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
@@ -21,36 +24,49 @@ import org.bukkit.persistence.PersistentDataType;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 public class ItemPurchaseView {
 
+    private final PlayerShopOverhaul playerShopOverhaul;
+    private final FoliaHacks foliaHacks;
     private final ConfigHandler configHandler;
+    private final Storage storage;
     private static LegacyComponentSerializer legacySerializer = LegacyComponentSerializer.builder().useUnusualXRepeatedCharacterHexFormat().hexColors().build();
 
-    public ItemPurchaseView(ConfigHandler configHandler) {
+    @Inject
+    public ItemPurchaseView(
+            PlayerShopOverhaul playerShopOverhaul,
+            FoliaHacks foliaHacks,
+            ConfigHandler configHandler,
+            Storage storage
+    ) {
+        this.playerShopOverhaul = playerShopOverhaul;
+        this.foliaHacks = foliaHacks;
         this.configHandler = configHandler;
+        this.storage = storage;
     }
 
     public void updateUI(Player player, ChestInterface<ItemPurchaseData> chestInterface) {
         ItemPurchaseData data = chestInterface.getInteractions().getData();
         chestInterface.getInventory().setItem(4, getListing(data, "Loading..."));
-        PlayerShopOverhaul.getInstance().getGlobalTradeSystem().getStorage().costToPurchaseAmountFromMarket(data.getPricedMarket().getMarketID(), data.getNumberToPurchase())
-                .thenAccept((cost) -> {
-                    PlayerShopOverhaul.getInstance().getFoliaHacks().runASAP(player, () -> {
-                        ItemStack listing = getListing(data, "%.2f".formatted(cost));
-                        ItemMeta itemMeta = listing.getItemMeta();
-                        itemMeta.getPersistentDataContainer().set(new NamespacedKey(PlayerShopOverhaul.getInstance(), "totalprice"), PersistentDataType.DOUBLE, cost);
-                        listing.setItemMeta(itemMeta);
-                        chestInterface.getInventory().setItem(4, listing);
-                    });
+        storage.costToPurchaseAmountFromMarket(data.getPricedMarket().getMarketID(), data.getNumberToPurchase())
+            .thenAccept((cost) -> {
+                foliaHacks.runASAP(player, () -> {
+                    ItemStack listing = getListing(data, "%.2f".formatted(cost));
+                    ItemMeta itemMeta = listing.getItemMeta();
+                    itemMeta.getPersistentDataContainer().set(new NamespacedKey(playerShopOverhaul, "totalprice"), PersistentDataType.DOUBLE, cost);
+                    listing.setItemMeta(itemMeta);
+                    chestInterface.getInventory().setItem(4, listing);
                 });
+            });
     }
 
-    public void displayItemPurchaseView(Player clickPlayer, PricedMarket market) {
+    public void displayItemPurchaseView(Player clickPlayer, PricedMarket market, Consumer<Player> backButton) {
         ItemPurchaseData itemPurchaseData = new ItemPurchaseData(market);
         Component inventoryTitleComponent = MiniMessage.miniMessage().deserialize(
                 configHandler.getLanguageConfig().getItemPurchaseView().getTitle(),
-                Placeholder.unparsed("itemname", market.getName())
+                Placeholder.unparsed("itemname", PricedMarket.getName(configHandler, market.getItem()))
         );
         String inventoryTitle = legacySerializer.serialize(inventoryTitleComponent);
         ChestInterface<ItemPurchaseData> chestInterface = new ChestInterface<>(inventoryTitle, 1, itemPurchaseData);
@@ -73,31 +89,29 @@ public class ItemPurchaseView {
         );
         updateUI(clickPlayer, chestInterface);
         chestInterface.getInteractions().addInteraction((item) -> {
-            Double price = item.getPersistentDataContainer().get(new NamespacedKey(PlayerShopOverhaul.getInstance(), "totalprice"), PersistentDataType.DOUBLE);
+            Double price = item.getPersistentDataContainer().get(new NamespacedKey(playerShopOverhaul, "totalprice"), PersistentDataType.DOUBLE);
             return price != null;
         }, (player, item, clickType) -> {
-            Double price = item.getPersistentDataContainer().get(new NamespacedKey(PlayerShopOverhaul.getInstance(), "totalprice"), PersistentDataType.DOUBLE);
-            PlayerShopOverhaul.getInstance().getGlobalTradeSystem().getStorage().purchaseFromMarket(clickPlayer.getUniqueId(), market.getMarketID(), itemPurchaseData.getNumberToPurchase(), price)
+            Double price = item.getPersistentDataContainer().get(new NamespacedKey(playerShopOverhaul, "totalprice"), PersistentDataType.DOUBLE);
+            storage.purchaseFromMarket(clickPlayer.getUniqueId(), market.getMarketID(), itemPurchaseData.getNumberToPurchase(), price)
                     .thenAccept((response) -> {
                         if (response.transactionSuccess()) {
                             givePlayerItems(player, market.getItem(), itemPurchaseData.getNumberToPurchase());
-                            Bukkit.getScheduler().runTask(PlayerShopOverhaul.getInstance(), () -> clickPlayer.sendMessage(ChatColor.GREEN + String.format("It was bought successfully for %.2f! You now have %.2f.", response.amount, response.balance)));
+                            foliaHacks.runASAP(clickPlayer, () -> clickPlayer.sendMessage(ChatColor.GREEN + String.format("It was bought successfully for %.2f! You now have %.2f.", response.amount, response.balance)));
                         }
                         else {
-                            Bukkit.getScheduler().runTask(PlayerShopOverhaul.getInstance(), () -> clickPlayer.sendMessage(ChatColor.RED + "You have insufficient funds!"));
+                            foliaHacks.runASAP(clickPlayer, () -> clickPlayer.sendMessage(ChatColor.RED + "You have insufficient funds!"));
                         }
                     }).exceptionally((throwable -> {
                         if (throwable instanceof InsufficientStockException e)
-                            Bukkit.getScheduler().runTask(PlayerShopOverhaul.getInstance(), () -> clickPlayer.sendMessage(ChatColor.RED + "There is insufficient stock!"));
+                            foliaHacks.runASAP(clickPlayer, () -> clickPlayer.sendMessage(ChatColor.RED + "There is insufficient stock!"));
 
                         else if (throwable instanceof ExceedsMaxPriceException e)
-                            Bukkit.getScheduler().runTask(PlayerShopOverhaul.getInstance(), () -> clickPlayer.sendMessage(ChatColor.RED + "This would have cost more than the advertised maximum price, try purchasing less at once!"));
+                            foliaHacks.runASAP(clickPlayer, () -> clickPlayer.sendMessage(ChatColor.RED + "This would have cost more than the advertised maximum price, try purchasing less at once!"));
                         return null;
                     }));
         });
-        chestInterface.getInteractions().addSimpleInteraction(guiItems.get('0'), (otherPlayer) -> {
-            PlayerShopOverhaul.getInstance().getGlobalTradeSystem().showTradeSystemView(otherPlayer);
-        });
+        chestInterface.getInteractions().addSimpleInteraction(guiItems.get('0'), backButton);
         chestInterface.getInteractions().addSimpleInteraction(guiItems.get('1'), (otherPlayer) -> {
             chestInterface.getInteractions().getData().addNumberToPurchase(-64);
             updateUI(otherPlayer, chestInterface);
@@ -149,7 +163,7 @@ public class ItemPurchaseView {
         LanguageConfig.ItemPurchaseViewConfig itemPurchaseView = configHandler.getLanguageConfig().getItemPurchaseView();
         Component itemName = MiniMessage.miniMessage().deserialize(
                 itemPurchaseView.getListing().getName(),
-                Placeholder.unparsed("name", pricedMarket.getName())
+                Placeholder.unparsed("name", PricedMarket.getName(configHandler, marketItem))
         );
         List<Component> itemLore = itemPurchaseView.getListing().getLore().stream()
                 .map((str) -> MiniMessage.miniMessage().deserialize(
