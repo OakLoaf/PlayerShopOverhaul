@@ -1,11 +1,13 @@
 package me.xemor.playershopoverhaul;
 
+import me.xemor.playershopoverhaul.configuration.ConfigHandler;
+import me.xemor.playershopoverhaul.userinterface.GlobalTradeSystem;
 import org.bukkit.inventory.ItemStack;
 
 public class Market {
 
-    final int marketID;
-    final ItemStack item;
+    private final int marketID;
+    private final ItemStack item;
 
     public Market(int marketID, ItemStack item) {
         this.marketID = marketID;
@@ -20,11 +22,15 @@ public class Market {
         return marketID;
     }
 
-    public String getName() {
-        return PricedMarket.getName(item);
+    public String getName(ConfigHandler configHandler) {
+        return PricedMarket.getName(configHandler, item);
     }
 
-    public static String getName(ItemStack item) {
-        return item.hasItemMeta() && item.getItemMeta().hasDisplayName() ? item.getItemMeta().getDisplayName() : PlayerShopOverhaul.getInstance().getConfigHandler().getListingName(item.getType().name());
+    public static String getName(ConfigHandler configHandler, ItemStack item) {
+        return item.hasItemMeta() && item.getItemMeta().hasDisplayName() ? item.getItemMeta().getDisplayName() : configHandler.getListingName(item.getType().name());
+    }
+
+    public int getMarketID() {
+        return marketID;
     }
 }

@@ -12,42 +12,83 @@ sell:
 claim:
   claimed: "<gray>You claimed <money> dollars!"
 listing:
-  name: "<reset><b><name>"
+  name: "<reset><i></i><name>"
   lore:
     - "<reset><gray><i>Price: <price>"
     - "<reset><gray><i>Stock: <stock>"
-GUI:
+itemPurchaseView:
+  title: "Purchasing <itemname>"
+  listing:
+    name: "<reset><name>"
+    lore:
+      - "<reset><gray><i>Total Price: <totalprice>"
+      - "<reset><gray><i>Purchasing <amounttopurchase> out of <stock> available"
+  menuBackButton:
+    type: BARRIER
+    metadata:
+      displayName: "<reset><red>Back"
+      lore:
+        - "<gray>Return to the GTS"
+  purchase64Less:
+    type: RED_DYE
+    metadata:
+      displayName: "<reset><red>-64"
+  purchase16Less:
+    type: RED_DYE
+    metadata:
+      displayName: "<reset><red>-16"
+  purchase1Less:
+    type: RED_DYE
+    metadata:
+      displayName: "<reset><red>-1"
+  purchase1More:
+    type: LIME_DYE
+    metadata:
+      displayName: "<reset><green>+1"
+  purchase16More:
+    type: LIME_DYE
+    metadata:
+      displayName: "<reset><green>+16"
+  purchase64More:
+    type: LIME_DYE
+    metadata:
+      displayName: "<reset><green>+64"
+  purchase192More:
+    type: LIME_DYE
+    metadata:
+      displayName: "<reset><green>+192"
+GTSView:
   title: "Global Trade System"
   forwardArrow:
     type: ARROW
     metadata:
-      displayName: "Next Page"
+      displayName: "<reset><gray>Next Page"
   backArrow:
     type: ARROW
     metadata:
-      displayName: "Previous Page"
+      displayName: "<reset><gray>Previous Page"
   refresh:
     type: STRUCTURE_VOID
     metadata:
-      displayName: "Refresh"
+      displayName: "<reset><gray>Refresh"
       lore:
         - "<gray>Update market information"
   listings:
     type: CHEST
     metadata:
-      displayName: "My Listings"
+      displayName: "<reset><white>My Listings"
       lore:
         - "<gray>View and remove your current listings"
   menuBackButton:
     type: BARRIER
     metadata:
-      displayName: "<red>Back"
+      displayName: "<reset><red>Back"
       lore:
         - "<gray>Return to the previous menu!"
   search:
     type: OAK_SIGN
     metadata:
-      displayName: "Search"
+      displayName: "<reset><white>Search"
       lore:
         - "<gray>Search through all items on the GTS"
         - "<gray>If you want to clear your search,"

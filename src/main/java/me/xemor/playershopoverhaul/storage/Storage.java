@@ -12,8 +12,7 @@ import java.util.concurrent.CompletableFuture;
 
 public interface Storage {
 
-    void setup();
-    void registerListing(UUID uuid, ItemStack item, int stock, double pricePer);
+    void registerListing(UUID uuid, ItemStack item, int stock, double pricePer) throws ItemTooLargeException;
     CompletableFuture<Object> removeListing(int listingID);
     CompletableFuture<Listing> getListing(int listingID);
     CompletableFuture<Market> getMarket(int marketID);
@@ -21,7 +20,8 @@ public interface Storage {
     CompletableFuture<List<PricedMarket>> getMarkets(int offset);
     CompletableFuture<List<Listing>> getPlayerListings(UUID uuid, int serverID, int offset);
     CompletableFuture<List<Market>> getMarkets(List<Listing> listings);
-    CompletableFuture<EconomyResponse> purchaseFromMarket(UUID uuid, Market market, int amount);
+    CompletableFuture<Double> costToPurchaseAmountFromMarket(int marketID, int amount);
+    CompletableFuture<EconomyResponse> purchaseFromMarket(UUID uuid, int marketID, int amount, double maxPrice);
     CompletableFuture<List<PricedMarket>> getMarkets(int offset, String search);
     CompletableFuture<Double> claimPayment(UUID uuid);
     void setUsername(UUID uuid, String name);
