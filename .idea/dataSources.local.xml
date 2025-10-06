@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="dataSourceStorageLocal" created-in="IU-251.26927.53">
+    <data-source name="s1_PlayerShopOverhaul@dfnet.enchanted-skies.net" uuid="40d98111-8c24-4e16-b7cd-9e03346e9fa9">
+      <database-info product="MariaDB" version="10.6.7-MariaDB-2ubuntu1" jdbc-version="4.2" driver-name="MariaDB Connector/J" driver-version="2.7.3" dbms="MARIADB" exact-version="10.6.7" exact-driver-version="2.7">
+        <extra-name-characters>#@</extra-name-characters>
+        <identifier-quote-string>`</identifier-quote-string>
+      </database-info>
+      <case-sensitivity plain-identifiers="exact" quoted-identifiers="exact" />
+      <secret-storage>master_key</secret-storage>
+      <user-name>u1_9nZKHNAAOt</user-name>
+      <schema-mapping>
+        <introspection-scope>
+          <node kind="schema" qname="s1_PlayerShopOverhaul" />
+        </introspection-scope>
+      </schema-mapping>
+    </data-source>
+  </component>
+</project>
