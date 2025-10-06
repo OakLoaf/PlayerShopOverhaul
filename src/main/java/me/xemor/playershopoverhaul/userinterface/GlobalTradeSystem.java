@@ -6,11 +6,13 @@ import me.clip.placeholderapi.PlaceholderAPI;
 import me.xemor.foliahacks.FoliaHacks;
 import me.xemor.playershopoverhaul.*;
 import me.xemor.playershopoverhaul.configuration.ConfigHandler;
-import me.xemor.playershopoverhaul.storage.SQLStorage;
 import me.xemor.playershopoverhaul.storage.Storage;
 import me.xemor.playershopoverhaul.storage.fastofflineplayer.OfflinePlayerCache;
 import me.xemor.userinterface.chestinterface.ChestInterface;
 import me.xemor.userinterface.textinterface.TextInterface;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.MiniMessage;
+import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
 import org.bukkit.*;
 import org.bukkit.entity.Player;
 import org.bukkit.event.Listener;
@@ -105,22 +107,37 @@ public class GlobalTradeSystem implements Listener {
     }
 
     public void showTradeSystemView(Player player) {
-        ChestInterface<GTSData> chestInterface = new ChestInterface<>(configHandler.getGuiTitle(), 5, new GTSData("", 0));
+        String title = LegacyComponentSerializer.legacyAmpersand().serialize(MiniMessage.miniMessage().deserialize(configHandler.getGuiTitle()));
+        ChestInterface<GTSData> chestInterface = new ChestInterface<>(title, 5, new GTSData("", 0));
         GTSData data = chestInterface.getInteractions().getData();
         ItemStack search = configHandler.getSearch();
         ItemStack myListings = configHandler.getListings();
         ItemStack forwardArrow = configHandler.getForwardArrow();
         ItemStack backArrow = configHandler.getBackArrow();
         ItemStack refresh = configHandler.getRefresh();
+
+        ItemStack border = ItemStack.of(Material.LIME_STAINED_GLASS_PANE);
+        ItemMeta borderMeta = border.getItemMeta();
+        borderMeta.displayName(Component.text(" "));
+        border.setItemMeta(borderMeta);
+
         chestInterface.calculateInventoryContents(
                 new String[] {
-                        "    R    ",
-                        "         ",
-                        "B       F",
-                        "         ",
-                        "L       S"
+                    "         ",
+                    "         ",
+                    "         ",
+                    "         ",
+                    "         ",
+                    "L##BRF##S"
                 },
-                Map.of('B', backArrow, 'F', forwardArrow, 'L', myListings, 'S', search, 'R', refresh)
+                Map.of(
+                    'B', backArrow,
+                    'F', forwardArrow,
+                    'L', myListings,
+                    'S', search,
+                    'R', refresh,
+                    '#', border
+                )
         );
         chestInterface.getInteractions().addItemSimpleInteraction(forwardArrow, (otherPlayer) -> {
             if (chestInterface.getInventory().getItem(10) != null) data.setPageNumber(data.getPageNumber() + 1);

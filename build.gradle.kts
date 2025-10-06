@@ -44,7 +44,7 @@ dependencies {
     implementation("me.xemor:foliahacks:1.7.5")
     implementation("space.arim.morepaperlib:morepaperlib:0.4.3")
     implementation("com.zaxxer:HikariCP:5.0.1")
-    implementation("me.xemor:userinterfaces:3.0.1-SNAPSHOT")
+    implementation("me.xemor:userinterfaces:3.0.2-SNAPSHOT")
 }
 
 java {
@@ -58,10 +58,6 @@ tasks {
     }
 
     shadowJar {
-        val folder = System.getenv("pluginFolder")
-        if (folder != null) {
-            destinationDirectory.set(file(folder))
-        }
 
         archiveFileName.set("${project.name}-${project.version}.jar")
         relocate("io.github.revxrsal.lamp", "me.xemor.playershopoverhaul.lamp")
