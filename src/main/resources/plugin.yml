@@ -21,9 +21,10 @@ libraries:
   - "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.7.0"
 depend:
   - Vault
-  - ProtocolLib
 softdepend:
   - PlaceholderAPI
+  - packetevents
+  - ProtocolLib
 permissions:
   playershopoverhaul.pso.reload:
     description: Allows you to reload PlayerShopOverhaul
