@@ -9,7 +9,7 @@ import me.xemor.playershopoverhaul.configuration.LanguageConfig;
 import me.xemor.playershopoverhaul.storage.ExceedsMaxPriceException;
 import me.xemor.playershopoverhaul.storage.InsufficientStockException;
 import me.xemor.playershopoverhaul.storage.Storage;
-import me.xemor.userinterface.ChestInterface;
+import me.xemor.userinterface.chestinterface.ChestInterface;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.MiniMessage;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
@@ -88,7 +88,7 @@ public class ItemPurchaseView {
                 guiItems
         );
         updateUI(clickPlayer, chestInterface);
-        chestInterface.getInteractions().addInteraction((item) -> {
+        chestInterface.getInteractions().addItemInteraction((item) -> {
             Double price = item.getPersistentDataContainer().get(new NamespacedKey(playerShopOverhaul, "totalprice"), PersistentDataType.DOUBLE);
             return price != null;
         }, (player, item, clickType) -> {
@@ -111,32 +111,32 @@ public class ItemPurchaseView {
                         return null;
                     }));
         });
-        chestInterface.getInteractions().addSimpleInteraction(guiItems.get('0'), backButton);
-        chestInterface.getInteractions().addSimpleInteraction(guiItems.get('1'), (otherPlayer) -> {
+        chestInterface.getInteractions().addItemSimpleInteraction(guiItems.get('0'), backButton);
+        chestInterface.getInteractions().addItemSimpleInteraction(guiItems.get('1'), (otherPlayer) -> {
             chestInterface.getInteractions().getData().addNumberToPurchase(-64);
             updateUI(otherPlayer, chestInterface);
         });
-        chestInterface.getInteractions().addSimpleInteraction(guiItems.get('2'), (otherPlayer) -> {
+        chestInterface.getInteractions().addItemSimpleInteraction(guiItems.get('2'), (otherPlayer) -> {
             chestInterface.getInteractions().getData().addNumberToPurchase(-16);
             updateUI(otherPlayer, chestInterface);
         });
-        chestInterface.getInteractions().addSimpleInteraction(guiItems.get('3'), (otherPlayer) -> {
+        chestInterface.getInteractions().addItemSimpleInteraction(guiItems.get('3'), (otherPlayer) -> {
             chestInterface.getInteractions().getData().addNumberToPurchase(-1);
             updateUI(otherPlayer, chestInterface);
         });
-        chestInterface.getInteractions().addSimpleInteraction(guiItems.get('4'), (otherPlayer) -> {
+        chestInterface.getInteractions().addItemSimpleInteraction(guiItems.get('4'), (otherPlayer) -> {
             chestInterface.getInteractions().getData().addNumberToPurchase(1);
             updateUI(otherPlayer, chestInterface);
         });
-        chestInterface.getInteractions().addSimpleInteraction(guiItems.get('5'), (otherPlayer) -> {
+        chestInterface.getInteractions().addItemSimpleInteraction(guiItems.get('5'), (otherPlayer) -> {
             chestInterface.getInteractions().getData().addNumberToPurchase(16);
             updateUI(otherPlayer, chestInterface);
         });
-        chestInterface.getInteractions().addSimpleInteraction(guiItems.get('6'), (otherPlayer) -> {
+        chestInterface.getInteractions().addItemSimpleInteraction(guiItems.get('6'), (otherPlayer) -> {
             chestInterface.getInteractions().getData().addNumberToPurchase(64);
             updateUI(otherPlayer, chestInterface);
         });
-        chestInterface.getInteractions().addSimpleInteraction(guiItems.get('7'), (otherPlayer) -> {
+        chestInterface.getInteractions().addItemSimpleInteraction(guiItems.get('7'), (otherPlayer) -> {
             chestInterface.getInteractions().getData().addNumberToPurchase(192);
             updateUI(otherPlayer, chestInterface);
         });

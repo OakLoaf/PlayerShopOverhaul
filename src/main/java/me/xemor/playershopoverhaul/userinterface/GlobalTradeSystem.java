@@ -9,7 +9,7 @@ import me.xemor.playershopoverhaul.configuration.ConfigHandler;
 import me.xemor.playershopoverhaul.storage.SQLStorage;
 import me.xemor.playershopoverhaul.storage.Storage;
 import me.xemor.playershopoverhaul.storage.fastofflineplayer.OfflinePlayerCache;
-import me.xemor.userinterface.ChestInterface;
+import me.xemor.userinterface.chestinterface.ChestInterface;
 import me.xemor.userinterface.textinterface.TextInterface;
 import org.bukkit.*;
 import org.bukkit.entity.Player;
@@ -122,17 +122,17 @@ public class GlobalTradeSystem implements Listener {
                 },
                 Map.of('B', backArrow, 'F', forwardArrow, 'L', myListings, 'S', search, 'R', refresh)
         );
-        chestInterface.getInteractions().addSimpleInteraction(forwardArrow, (otherPlayer) -> {
+        chestInterface.getInteractions().addItemSimpleInteraction(forwardArrow, (otherPlayer) -> {
             if (chestInterface.getInventory().getItem(10) != null) data.setPageNumber(data.getPageNumber() + 1);
             updateTradeSystemView(player, chestInterface);
         });
-        chestInterface.getInteractions().addSimpleInteraction(backArrow, (otherPlayer) -> {
+        chestInterface.getInteractions().addItemSimpleInteraction(backArrow, (otherPlayer) -> {
             if (data.getPageNumber() > 0) data.setPageNumber(data.getPageNumber() - 1);
             updateTradeSystemView(player, chestInterface);
         });
-        chestInterface.getInteractions().addSimpleInteraction(myListings, (otherPlayer) -> showListings(otherPlayer, otherPlayer.getUniqueId(), configHandler.getServerID()));
-        chestInterface.getInteractions().addSimpleInteraction(refresh, this::showTradeSystemView);
-        chestInterface.getInteractions().addSimpleInteraction(search, (otherPlayer) -> {
+        chestInterface.getInteractions().addItemSimpleInteraction(myListings, (otherPlayer) -> showListings(otherPlayer, otherPlayer.getUniqueId(), configHandler.getServerID()));
+        chestInterface.getInteractions().addItemSimpleInteraction(refresh, this::showTradeSystemView);
+        chestInterface.getInteractions().addItemSimpleInteraction(search, (otherPlayer) -> {
             player.closeInventory();
             foliaHacks.getScheduling().entitySpecificScheduler(otherPlayer)
                     .runDelayed(() -> {
@@ -143,7 +143,7 @@ public class GlobalTradeSystem implements Listener {
                         });
                     }, () -> {}, 2L);
         });
-        chestInterface.getInteractions().addInteraction(
+        chestInterface.getInteractions().addItemInteraction(
                 (item -> item != null && item.hasItemMeta() &&
                         item.getItemMeta().getPersistentDataContainer().has(marketIDKey, PersistentDataType.INTEGER)
                 ),
@@ -205,11 +205,11 @@ public class GlobalTradeSystem implements Listener {
         ItemStack backArrow = configHandler.getBackArrow();
         ItemStack backButton = configHandler.getMenuBackButton();
         GTSData data = chestInterface.getInteractions().getData();
-        chestInterface.getInteractions().addSimpleInteraction(forwardArrow, (otherPlayer) -> {
+        chestInterface.getInteractions().addItemSimpleInteraction(forwardArrow, (otherPlayer) -> {
             if (chestInterface.getInventory().getItem(10) != null) data.setPageNumber(data.getPageNumber() + 1);
             displayListingsViewItems(otherPlayer, dataUUID, serverID, chestInterface);
         });
-        chestInterface.getInteractions().addSimpleInteraction(backArrow, (otherPlayer) -> {
+        chestInterface.getInteractions().addItemSimpleInteraction(backArrow, (otherPlayer) -> {
             if (data.getPageNumber() > 0) data.setPageNumber(data.getPageNumber() - 1);
             displayListingsViewItems(otherPlayer, dataUUID, serverID, chestInterface);
         });
@@ -221,8 +221,8 @@ public class GlobalTradeSystem implements Listener {
                         "    b    "
                 },
                 Map.of('B', backArrow, 'F', forwardArrow, 'b', backButton));
-        chestInterface.getInteractions().addSimpleInteraction(backButton, this::showTradeSystemView);
-        chestInterface.getInteractions().addInteraction((item) -> item != null && item.hasItemMeta() &&
+        chestInterface.getInteractions().addItemSimpleInteraction(backButton, this::showTradeSystemView);
+        chestInterface.getInteractions().addItemInteraction((item) -> item != null && item.hasItemMeta() &&
                 item.getItemMeta().getPersistentDataContainer().has(listingsIDKey, PersistentDataType.INTEGER),
                 (clickPlayer, item, clickType) -> {
                     Inventory inventory = clickPlayer.getOpenInventory().getTopInventory();
